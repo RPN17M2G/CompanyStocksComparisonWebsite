@@ -7,17 +7,23 @@ import {
   Toolbar,
   Typography,
   Button,
-  Container,
   Grid,
   Box,
   Fab,
   Alert,
   Snackbar,
+  IconButton,
+  GlobalStyles,
+  Paper,
+  Divider, // <-- Import Divider
 } from '@mui/material';
-import { Plus, Settings, TrendingUp, Users, Edit3 } from 'lucide-react';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { Plus, Settings, TrendingUp, Users, Edit3, X } from 'lucide-react';
 import { Company, ComparisonGroup, CustomMetric, DataProviderConfig, RawFinancialData } from './types';
 import { storageService } from './services/storageService';
 import { getAdapter } from './adapters';
+// Import metric functions needed for DetailView
 import { aggregateGroupData } from './engine/metricCalculator';
 import { CompanyTile } from './components/CompanyTile';
 import { AddCompanyDialog } from './components/AddCompanyDialog';
@@ -25,12 +31,13 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { CustomMetricEditor } from './components/CustomMetricEditor';
 import { CreateGroupDialog } from './components/CreateGroupDialog';
 import { ComparisonView } from './components/ComparisonView';
+import { DetailView } from './components/DetailView'; // Import the new component
 
-export const lightTheme = createTheme({
-  palette: {
+// --- Theme Palettes ---
+export const lightTheme = {
     mode: 'light',
     primary: {
-      main: '#2563eb', // Blue
+      main: '#5c87e4ff', // Blue (Updated)
     },
     secondary: {
       main: '#10b981', // Green
@@ -39,30 +46,51 @@ export const lightTheme = createTheme({
       default: '#f8fafc', // A very light gray
       paper: '#ffffff',   // White
     }
+  }
+
+export const darkTheme = {
+  mode: 'dark',
+  primary: {
+    main: '#2563eb', // Same Blue
   },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+  secondary: {
+    main: '#10b981', // Green
+  },
+  background: {
+    default: '#0b1120', // A very dark blue/gray
+    paper: '#121e36',   // A slightly lighter dark blue/gray
+  }
+}
+
+const typography = {
+  fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+};
+
+// --- 1. Define the Global Styles for the Animation ---
+const animatedBackgroundStyles = (theme: any) => ({
+  '@keyframes gradientAnimation': {
+    '0%': { backgroundPosition: '0% 50%' },
+    '50%': { backgroundPosition: '100% 50%' },
+    '100%': { backgroundPosition: '0% 50%' },
+  },
+  'body': {
+    background: theme.palette.mode === 'dark'
+      ? `linear-gradient(-45deg, 
+          ${theme.palette.background.default}, 
+          ${theme.palette.background.paper}, 
+          ${theme.palette.primary.dark}, 
+          ${theme.palette.secondary.dark})`
+      : `linear-gradient(-45deg, 
+          ${theme.palette.background.default}, 
+          ${theme.palette.background.paper}, 
+          ${theme.palette.primary.light}, 
+          ${theme.palette.secondary.light})`,
+    backgroundSize: '400% 400%',
+    animation: 'gradientAnimation 20s ease infinite',
+    transition: 'background 300ms ease-in-out',
   },
 });
 
-export const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#2563eb', // Same Blue
-    },
-    secondary: {
-      main: '#10b981', // Same Green
-    },
-    background: {
-      default: '#0b1120', // A very dark blue/gray
-      paper: '#121e36',   // A slightly lighter dark blue/gray
-    }
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-  },
-});
 
 function App() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -70,8 +98,11 @@ function App() {
   const [config, setConfig] = useState<DataProviderConfig | null>(null);
   const [customMetrics, setCustomMetrics] = useState<CustomMetric[]>([]);
   const [keyMetrics, setKeyMetrics] = useState<string[]>([]);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // --- New State for Master-Detail ---
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
+  // ------------------------------------
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -178,11 +209,9 @@ function App() {
   const handleRemoveCompany = (ticker: string) => {
     setCompanies(prev => prev.filter(c => c.ticker !== ticker));
     storageService.removeCompanyTicker(ticker);
-    setExpandedItems(prev => {
-      const next = new Set(prev);
-      next.delete(ticker);
-      return next;
-    });
+    if (detailItemId === ticker) { // Added
+      setDetailItemId(null);
+    }
     setSelectedItems(prev => {
       const next = new Set(prev);
       next.delete(ticker);
@@ -236,26 +265,12 @@ function App() {
   const handleRemoveGroup = (groupId: string) => {
     setGroups(prev => prev.filter(g => g.id !== groupId));
     storageService.removeComparisonGroup(groupId);
-    setExpandedItems(prev => {
-      const next = new Set(prev);
-      next.delete(groupId);
-      return next;
-    });
+    if (detailItemId === groupId) { // Added
+      setDetailItemId(null);
+    }
     setSelectedItems(prev => {
       const next = new Set(prev);
       next.delete(groupId);
-      return next;
-    });
-  };
-
-  const toggleExpanded = (id: string) => {
-    setExpandedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
       return next;
     });
   };
@@ -293,12 +308,39 @@ function App() {
   const selectedCompanies = companies.filter(c => selectedItems.has(c.id));
   const comparisonItems = allItems.filter(item => selectedItems.has(item.id));
 
+  // --- Get data for the detail view ---
+  const detailItem = useMemo(() =>
+    allItems.find(item => item.id === detailItemId),
+    [detailItemId, allItems]
+  );
+  const detailItemData = useMemo(() =>
+    detailItem ? groupData.get(detailItem.id) : null,
+    [detailItem, groupData]
+  );
+  // ------------------------------------
+
   const hasConfig = config !== null;
+
+  const [mode, setMode] = useState('dark');
+  const toggleTheme = () => {
+    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+  };
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: mode === 'light' ? lightTheme : darkTheme,
+        typography: typography,
+      }),
+    [mode],
+  );
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
+      <GlobalStyles styles={animatedBackgroundStyles} />
+
+      {/* --- Updated Layout for Master-Detail --- */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'transparent' }}>
         <AppBar position="sticky" elevation={1}>
           <Toolbar>
             <TrendingUp size={28} style={{ marginRight: 12 }} />
@@ -311,122 +353,223 @@ function App() {
             <Button color="inherit" startIcon={<Settings size={20} />} onClick={() => setShowSettings(true)}>
               Settings
             </Button>
+            <IconButton sx={{ ml: 1 }} onClick={toggleTheme} color="inherit">
+              {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
           </Toolbar>
         </AppBar>
 
-        <Container maxWidth="xl" sx={{ py: 4 }}>
-          {!hasConfig && (
-            <Alert severity="warning" sx={{ mb: 3 }}>
-              Please configure your data provider in Settings to start adding companies.
-            </Alert>
-          )}
+        {/* --- Content Area --- */}
+        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          
+          {/* --- Master View (Grid) --- */}
+          <Box
+            component="main"
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              p: 4,
+              transition: 'width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+              width: detailItem ? '60%' : '100%',
+              boxSizing: 'border-box',
+            }}
+          >
+            {!hasConfig && (
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                Please configure your data provider in Settings to start adding companies.
+              </Alert>
+            )}
 
-          {selectedItems.size >= 2 && (
-            <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<Users size={20} />}
-                onClick={() => setShowCreateGroup(true)}
-                disabled={selectedCompanies.length < 2}
-              >
-                Create Group ({selectedCompanies.length} companies)
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => setShowComparison(true)}
-              >
-                Compare Selected ({selectedItems.size})
-              </Button>
-            </Box>
-          )}
-
-          {allItems.length === 0 ? (
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: 400,
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="h5" color="text.secondary" gutterBottom>
-                No companies added yet
-              </Typography>
-              <Typography variant="body1" color="text.secondary" mb={3}>
-                {hasConfig
-                  ? 'Click the + button to add your first company'
-                  : 'Configure settings first, then add companies'}
-              </Typography>
-              {hasConfig && (
+            {selectedItems.size >= 2 && (
+              <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
-                  size="large"
-                  startIcon={<Plus size={24} />}
-                  onClick={() => setShowAddDialog(true)}
+                  color="secondary"
+                  startIcon={<Users size={20} />}
+                  onClick={() => setShowCreateGroup(true)}
+                  disabled={selectedCompanies.length < 2}
                 >
-                  Add Company
+                  Create Group ({selectedCompanies.length} companies)
                 </Button>
-              )}
-            </Box>
-          ) : (
-            <Grid container spacing={3}>
-              {allItems.map(item => {
-                const isGroup = 'isGroup' in item;
-                const data = groupData.get(item.id);
+                <Button
+                  variant="contained"
+                  onClick={() => setShowComparison(true)}
+                >
+                  Compare Selected ({selectedItems.size})
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<X size={20} />}
+                  onClick={() => setSelectedItems(new Set())}
+                >
+                  Deselect All
+                </Button>
+              </Box>
+            )}
 
-                if (isGroup) {
-                  const group = item as ComparisonGroup;
-                  const groupWithData: ComparisonGroup = { ...group };
+            {allItems.length === 0 ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 400,
+                  textAlign: 'center',
+                }}
+              >
+                <Typography variant="h5" color="text.secondary" gutterBottom>
+                  No companies added yet
+                </Typography>
+                <Typography variant="body1" color="text.secondary" mb={3}>
+                  {hasConfig
+                    ? 'Click the + button to add your first company'
+                    : 'Configure settings first, then add companies'}
+                </Typography>
+                {hasConfig && (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    startIcon={<Plus size={24} />}
+                    onClick={() => setShowAddDialog(true)}
+                  >
+                    Add Company
+                  </Button>
+                )}
+              </Box>
+            ) : (
+              <Grid container spacing={3}>
+                {allItems.map(item => {
+                  const isGroup = 'isGroup' in item;
+                  const data = groupData.get(item.id);
+
+                  if (isGroup) {
+                    const group = item as ComparisonGroup;
+                    const groupWithData: ComparisonGroup = { ...group };
+
+                    return (
+                      <Grid item xs={12} sm={6} md={detailItem ? 6 : 4} lg={detailItem ? 6 : 4} key={item.id}>
+                        <CompanyTile
+                          item={groupWithData}
+                          keyMetrics={keyMetrics}
+                          customMetrics={customMetrics}
+                          isSelected={selectedItems.has(item.id)}
+                          onToggleSelect={() => toggleSelected(item.id)}
+                          onRemove={() => handleRemoveGroup(item.id)}
+                          onShowDetails={() => setDetailItemId(item.id)}
+                        />
+                      </Grid>
+                    );
+                  }
+
+                  const company = item as Company;
+                  const companyWithAggregatedData = data ? { ...company, rawData: data } : company;
 
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={item.id}>
+                    // Update Grid breakpoints to be responsive
+                    <Grid item xs={12} sm={6} md={detailItem ? 6 : 4} lg={detailItem ? 6 : 4} key={item.id}>
                       <CompanyTile
-                        item={groupWithData}
+                        item={companyWithAggregatedData}
                         keyMetrics={keyMetrics}
                         customMetrics={customMetrics}
-                        isExpanded={expandedItems.has(item.id)}
                         isSelected={selectedItems.has(item.id)}
-                        onToggleExpand={() => toggleExpanded(item.id)}
                         onToggleSelect={() => toggleSelected(item.id)}
+                        onRemove={() => handleRemoveCompany(item.id)}
+                        onShowDetails={() => setDetailItemId(item.id)}
                       />
                     </Grid>
                   );
-                }
-
-                const company = item as Company;
-                const companyWithAggregatedData = data ? { ...company, rawData: data } : company;
-
-                return (
-                  <Grid item xs={12} sm={6} md={4} key={item.id}>
-                    <CompanyTile
-                      item={companyWithAggregatedData}
-                      keyMetrics={keyMetrics}
-                      customMetrics={customMetrics}
-                      isExpanded={expandedItems.has(item.id)}
-                      isSelected={selectedItems.has(item.id)}
-                      onToggleExpand={() => toggleExpanded(item.id)}
-                      onToggleSelect={() => toggleSelected(item.id)}
-                    />
-                  </Grid>
-                );
-              })}
-            </Grid>
+                })}
+              </Grid>
+            )}
+          </Box>
+          
+          {/* --- UPDATED DISTINGUISHED SEPARATOR --- */}
+          {detailItem && (
+            <Divider 
+              orientation="vertical" 
+              flexItem 
+              sx={{ 
+                borderWidth: 0,
+                width: '3px', // Made it thicker
+                // Made gradient more visible
+                background: (theme) => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0))'
+                  : 'linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.2), rgba(0,0,0,0))',
+                height: '75%', // Shortened it a bit
+                my: 'auto',
+                borderRadius: '2px', // Rounded edges
+                boxShadow: (theme) => `0 0 10px ${theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}` // Added shadow
+              }} 
+            />
           )}
-        </Container>
+          {/* ------------------------------------- */}
+          
+          {/* --- Detail View (Panel) --- */}
+          {detailItem && detailItemData && (
+            <Box // This is the floating container
+              sx={{
+                height: '100%',
+                width: '40%',
+                transition: 'width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+                flexShrink: 0,
+                p: 3, 
+                boxSizing: 'border-box',
+                overflow: 'hidden', 
+              }}
+            >
+              <DetailView
+                item={detailItem}
+                data={detailItemData}
+                customMetrics={customMetrics}
+                onClose={() => setDetailItemId(null)}
+              />
+            </Box>
+          )}
+        </Box>
+        {/* --------------------------- */}
 
+        {/* --- UPDATED "ADD COMPANY" BUTTON (ICON ONLY) --- */}
         {hasConfig && (
           <Fab
-            color="primary"
+            color="default" // Use default, not primary, for glass effect
             aria-label="add"
-            sx={{ position: 'fixed', bottom: 24, right: 24 }}
             onClick={() => setShowAddDialog(true)}
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              
+              // --- Pinned State (Half out of screen) ---
+              right: -28, // Partially hidden circle (half of 56)
+              width: 56, // Standard Fab size
+              height: 56,
+              borderRadius: '50%', // Always a circle
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth transition
+              
+              // Glassmorphism
+              backgroundColor: (theme) => 
+                theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.6)' : 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: (theme) => theme.shadows[8],
+              color: 'text.primary',
+              
+              // --- Expanded (Hover) state ---
+              '&:hover': {
+                right: 24, // Slide IN to view
+                boxShadow: (theme) => theme.shadows[12], // "Pop" more
+                // Need to override default hover color
+                backgroundColor: (theme) => 
+                  theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+              },
+            }}
           >
+            {/* Icon only */}
             <Plus size={28} />
           </Fab>
         )}
+        {/* ---------------------------------- */}
+
 
         <AddCompanyDialog
           open={showAddDialog}
@@ -479,3 +622,4 @@ function App() {
 }
 
 export default App;
+

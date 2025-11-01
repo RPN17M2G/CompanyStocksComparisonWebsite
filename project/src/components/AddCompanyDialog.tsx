@@ -7,6 +7,7 @@ import {
   Button,
   TextField,
 } from '@mui/material';
+import { GlassDialog } from './GlassDialog';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -31,9 +32,14 @@ export function AddCompanyDialog({ open, onClose, onAdd }: AddCompanyDialogProps
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Add Company</DialogTitle>
-      <DialogContent>
+    <GlassDialog open={open} onClose={onClose} title="Add Company" maxWidth="xs" fullWidth
+      actions={
+        <>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleAdd} variant="contained" disabled={!ticker.trim()}>
+          Add
+        </Button> </>
+        }>
         <TextField
           autoFocus
           fullWidth
@@ -44,13 +50,6 @@ export function AddCompanyDialog({ open, onClose, onAdd }: AddCompanyDialogProps
           placeholder="e.g., AAPL"
           sx={{ mt: 2 }}
         />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button onClick={handleAdd} variant="contained" disabled={!ticker.trim()}>
-          Add
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </GlassDialog>
   );
 }
