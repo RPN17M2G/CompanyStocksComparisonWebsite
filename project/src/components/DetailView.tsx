@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Company, ComparisonGroup, CustomMetric, RawFinancialData } from '../types';
 import { coreMetrics } from '../engine/coreMetrics';
 import { calculateCoreMetric, calculateCustomMetric, formatMetricValue } from '../engine/metricCalculator';
+import { scrollbarStyles } from '../theme';
 
 interface DetailViewProps {
   item: Company | ComparisonGroup;
@@ -86,6 +87,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
           backdropFilter: 'blur(10px)',
           borderBottom: 1,
           borderColor: 'divider',
+          ...scrollbarStyles,
         }}
       >
         <IconButton
