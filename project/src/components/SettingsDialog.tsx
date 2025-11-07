@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // <-- Import useCallback
 import {
   Button,
   FormControl,
@@ -9,10 +9,12 @@ import {
   Box,
   Typography,
   Alert,
+  Theme, // <-- Import Theme
 } from '@mui/material';
 import { DataProviderConfig } from '../types';
 import { availableAdapters } from '../adapters';
-import { GlassDialog } from './GlassDialog'; // Import the new component
+import { GlassDialog } from './GlassDialog';
+import React from 'react'; // <-- Added React import for consistency
 
 interface SettingsDialogProps {
   open: boolean;
@@ -26,13 +28,14 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
   const [apiKey, setApiKey] = useState(config?.apiKey || '');
 
   useEffect(() => {
-    if (config) {
-      setProvider(config.provider);
-      setApiKey(config.apiKey);
+    // This effect correctly resets the form state when the dialog is opened
+    if (open) {
+      setProvider(config?.provider || '');
+      setApiKey(config?.apiKey || '');
     }
-  }, [config, open]); // Added 'open' to reset state if dialog re-opens with old config
+  }, [config, open]);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!provider || !apiKey.trim()) return;
 
     onSave({
@@ -40,19 +43,13 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
       apiKey: apiKey.trim(),
     });
     onClose();
-  };
+  }, [provider, apiKey, onSave, onClose]); // <-- Added dependencies
   
-  // Close and reset local state
-  const handleClose = () => {
-    if (config) {
-      setProvider(config.provider);
-      setApiKey(config.apiKey);
-    } else {
-      setProvider('');
-      setApiKey('');
-    }
+  const handleClose = useCallback(() => {
+    // Don't need to manually reset state here, the useEffect on 'open' handles it.
+    // This makes the logic even DRY-er.
     onClose();
-  };
+  }, [onClose]); // <-- Simplified dependencies
 
   return (
     <GlassDialog
@@ -81,13 +78,14 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
         severity="info"
         sx={{
           mb: 3,
-          borderRadius: 3, // 12px
-          // Glassmorphism for the Alert
-          backgroundColor: (theme: any) => 
+          borderRadius: 3,
+          // 2. Fixed 'any' type
+          backgroundColor: (theme: Theme) => 
             theme.palette.mode === 'dark' ? 'rgba(3, 155, 229, 0.1)' : 'rgba(3, 155, 229, 0.1)',
           backdropFilter: 'blur(5px)',
           border: '1px solid',
-          borderColor: (theme: any) => 
+          // 2. Fixed 'any' type
+          borderColor: (theme: Theme) => 
             theme.palette.mode === 'dark' ? 'rgba(3, 155, 229, 0.3)' : 'rgba(3, 155, 229, 0.4)',
           color: 'info.main',
         }}

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react'; // <-- Import useCallback
 import {
   Button,
   TextField,
   Box,
   Typography,
+  Theme, // <-- Import Theme
 } from '@mui/material';
 import { ComparisonGroup, Company } from '../types';
-import { GlassDialog } from './GlassDialog'; // Import the new component
+import { GlassDialog } from './GlassDialog';
+import React from 'react'; // <-- Added React import
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -23,26 +25,27 @@ export function CreateGroupDialog({
 }: CreateGroupDialogProps) {
   const [groupName, setGroupName] = useState('');
 
-  const handleCreate = () => {
-    if (!groupName.trim()) return;
+  // 1. This is now the single source of truth for closing/resetting
+  const handleClose = useCallback(() => {
+    setGroupName('');
+    onClose();
+  }, [onClose]);
+
+  const handleCreate = useCallback(() => {
+    const trimmedName = groupName.trim();
+    if (!trimmedName) return;
 
     const newGroup: ComparisonGroup = {
-      id: `group_${Date.now()}`,
-      name: groupName.trim(),
+      // 3. Use robust, non-magic UUID generation
+      id: `group_${crypto.randomUUID()}`, 
+      name: trimmedName,
       companyIds: selectedCompanies.map(c => c.id),
       isGroup: true,
     };
 
     onCreateGroup(newGroup);
-    setGroupName('');
-    onClose();
-  };
-  
-  // Close and reset local state
-  const handleClose = () => {
-    setGroupName('');
-    onClose();
-  };
+    handleClose(); // <-- 2. Call the centralized close/reset function (DRY)
+  }, [groupName, selectedCompanies, onCreateGroup, handleClose]); // <-- Added dependencies
 
   return (
     <GlassDialog
@@ -77,8 +80,8 @@ export function CreateGroupDialog({
             sx={{
               px: 2,
               py: 0.5,
-              // Glassmorphism effect for the "chip"
-              backgroundColor: (theme: any) => 
+              // 4. Fixed 'any' type
+              backgroundColor: (theme: Theme) => 
                 theme.palette.mode === 'dark' ? 'rgba(37, 99, 235, 0.6)' : 'rgba(37, 99, 235, 0.2)',
               backdropFilter: 'blur(5px)',
               color: 'primary.main',

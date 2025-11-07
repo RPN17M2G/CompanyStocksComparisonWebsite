@@ -5,9 +5,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Box, // <-- Changed from Paper
+  Box,
   Typography,
   IconButton,
+  Theme, // <-- 1. Import Theme
 } from '@mui/material';
 import { X } from 'lucide-react';
 
@@ -18,8 +19,8 @@ const scrollbarStyles = {
     display: 'none',
   },
   // Hide scrollbar for IE, Edge and Firefox
-  '-ms-overflow-style': 'none',  // IE and Edge
-  'scrollbar-width': 'none',  // Firefox
+  '-ms-overflow-style': 'none', // IE and Edge
+  'scrollbar-width': 'none', // Firefox
 };
 // ----------------------------------------
 
@@ -57,16 +58,18 @@ export function GlassDialog({
       }}
     >
       {/* --- Main Floating Glassy Card --- */}
-      <Box // <-- Changed from Paper
+      <Box
         sx={{
           borderRadius: 4, // 16px
           // Glassmorphism effect
-          backgroundColor: (theme: any) => 
+          // 2. Fixed 'any' type
+          backgroundColor: (theme: Theme) => 
             theme.palette.mode === 'dark' ? 'rgba(18, 30, 54, 0.85)' : 'rgba(255, 255, 255, 0.85)',
           backdropFilter: 'blur(10px)',
-          boxShadow: (theme: any) => theme.shadows[10],
+          boxShadow: (theme: Theme) => theme.shadows[10], // 2. Fixed 'any' type
           border: '1px solid',
-          borderColor: (theme: any) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          // 2. Fixed 'any' type
+          borderColor: (theme: Theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
           
           maxHeight: '90vh', // Float effect
           display: 'flex',
@@ -80,7 +83,8 @@ export function GlassDialog({
           top: 0, 
           zIndex: 10,
           // Glassy header
-          backgroundColor: (theme: any) => 
+          // 2. Fixed 'any' type
+          backgroundColor: (theme: Theme) => 
             theme.palette.mode === 'dark' ? 'rgba(11, 17, 32, 0.8)' : 'rgba(248, 250, 252, 0.8)',
           backdropFilter: 'blur(10px)',
           borderBottom: 1,
@@ -121,7 +125,8 @@ export function GlassDialog({
             bottom: 0, 
             zIndex: 10,
             // Glassy footer
-            backgroundColor: (theme: any) => 
+            // 2. Fixed 'any' type
+            backgroundColor: (theme: Theme) => 
               theme.palette.mode === 'dark' ? 'rgba(11, 17, 32, 0.8)' : 'rgba(248, 250, 252, 0.8)',
             backdropFilter: 'blur(10px)',
             borderTop: 1,
@@ -130,8 +135,7 @@ export function GlassDialog({
             {actions}
           </DialogActions>
         )}
-      </Box> {/* <-- Changed from Paper */}
+      </Box>
     </Dialog>
   );
 }
-

@@ -22,7 +22,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
   if (isGroup) {
     title = group.name;
     subtitle = `Group (${group.companyIds.length} companies)`;
-  } else if (data) {
+  } else if (data && data != undefined) {
     title = data.name;
     subtitle = data.ticker;
   }

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react'; // Import useCallback
 import {
-  Button,
-  TextField,
+Button,
+TextField,
+Theme, // Import the Theme type
 } from '@mui/material';
 import { GlassDialog } from './GlassDialog';
-import React from 'react'; // Added import
+import React from 'react';
 
 interface AddCompanyDialogProps {
   open: boolean;
@@ -15,29 +16,34 @@ interface AddCompanyDialogProps {
 export function AddCompanyDialog({ open, onClose, onAdd }: AddCompanyDialogProps) {
   const [ticker, setTicker] = useState('');
 
-  const handleAdd = () => {
-    if (!ticker.trim()) return;
-    onAdd(ticker.trim().toUpperCase());
+  // This is now the single source of truth for all "close" actions.
+  // Wrapped in useCallback to stabilize the function reference.
+  const handleClose = useCallback(() => {
     setTicker('');
     onClose();
-  };
+  }, [onClose]); // Dependency array
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // Wrapped in useCallback.
+  // Now calls handleClose (DRY).
+  const handleAdd = useCallback(() => {
+    const trimmedTicker = ticker.trim();
+    if (!trimmedTicker) return;
+
+    onAdd(trimmedTicker.toUpperCase());
+    handleClose(); // Call the unified close/cleanup function
+  }, [ticker, onAdd, handleClose]); // Dependency array
+
+  // Wrapped in useCallback.
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAdd();
     }
-  };
-
-  // Close and reset local state
-  const handleClose = () => {
-    setTicker('');
-    onClose();
-  };
+  }, [handleAdd]); // Dependency array
 
   return (
     <GlassDialog
       open={open}
-      onClose={handleClose} // Use handleClose to reset state
+      onClose={handleClose}
       title="Add Company"
       maxWidth="xs"
       fullWidth
@@ -59,14 +65,14 @@ export function AddCompanyDialog({ open, onClose, onAdd }: AddCompanyDialogProps
         onKeyPress={handleKeyPress}
         placeholder="e.g., AAPL"
         sx={{
-          // Apply the "poppy" form field style for readability
           '& .MuiOutlinedInput-root': {
-            backgroundColor: (theme: any) =>
+           // Use the proper "Theme" type instead of "any"
+            backgroundColor: (theme: Theme) =>
               theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.4)',
             borderRadius: 2,
-          },
+         },
           '& .MuiInputLabel-root': {
-            color: (theme: any) => theme.palette.text.secondary,
+            color: (theme: Theme) => theme.palette.text.secondary,
           }
         }}
       />

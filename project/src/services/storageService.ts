@@ -8,21 +8,57 @@ const STORAGE_KEYS = {
   KEY_METRICS: 'stock_dashboard_key_metrics',
 };
 
+// --- [REFACTOR 1] ---
+// Generic, safe, and DRY helper functions for local storage.
+
+/**
+ * Safely retrieves and parses a JSON item from localStorage.
+ * @param key The localStorage key.
+ * @param defaultValue A fallback value if the key doesn't exist or is invalid JSON.
+ * @returns The parsed item or the default value.
+ */
+function getItem<T>(key: string, defaultValue: T): T {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? (JSON.parse(stored) as T) : defaultValue;
+  } catch (error) {
+    console.error(`Error parsing stored item ${key}:`, error);
+    // On error, return the default value to prevent app crash
+    return defaultValue;
+  }
+}
+
+/**
+ * Safely stringifies and saves a value to localStorage.
+ * @param key The localStorage key.
+ * @param value The value to save.
+ */
+function setItem<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error saving stored item ${key}:`, error);
+  }
+}
+
+// --- [REFACTOR 2] ---
+// The storageService is now just a clean API layer on top
+// of our generic helpers.
+
 export const storageService = {
+  // --- Companies ---
   getCompanyTickers(): string[] {
-    const stored = localStorage.getItem(STORAGE_KEYS.COMPANIES);
-    return stored ? JSON.parse(stored) : [];
+    return getItem(STORAGE_KEYS.COMPANIES, []);
   },
 
   saveCompanyTickers(tickers: string[]): void {
-    localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(tickers));
+    setItem(STORAGE_KEYS.COMPANIES, tickers);
   },
 
   addCompanyTicker(ticker: string): void {
     const tickers = this.getCompanyTickers();
     if (!tickers.includes(ticker.toUpperCase())) {
-      tickers.push(ticker.toUpperCase());
-      this.saveCompanyTickers(tickers);
+      this.saveCompanyTickers([...tickers, ticker.toUpperCase()]);
     }
   },
 
@@ -32,28 +68,27 @@ export const storageService = {
     this.saveCompanyTickers(filtered);
   },
 
+  // --- Provider Config ---
   getProviderConfig(): DataProviderConfig | null {
-    const stored = localStorage.getItem(STORAGE_KEYS.PROVIDER_CONFIG);
-    return stored ? JSON.parse(stored) : null;
+    return getItem(STORAGE_KEYS.PROVIDER_CONFIG, null);
   },
 
   saveProviderConfig(config: DataProviderConfig): void {
-    localStorage.setItem(STORAGE_KEYS.PROVIDER_CONFIG, JSON.stringify(config));
+    setItem(STORAGE_KEYS.PROVIDER_CONFIG, config);
   },
 
+  // --- Custom Metrics ---
   getCustomMetrics(): CustomMetric[] {
-    const stored = localStorage.getItem(STORAGE_KEYS.CUSTOM_METRICS);
-    return stored ? JSON.parse(stored) : [];
+    return getItem(STORAGE_KEYS.CUSTOM_METRICS, []);
   },
 
   saveCustomMetrics(metrics: CustomMetric[]): void {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_METRICS, JSON.stringify(metrics));
+    setItem(STORAGE_KEYS.CUSTOM_METRICS, metrics);
   },
 
   addCustomMetric(metric: CustomMetric): void {
     const metrics = this.getCustomMetrics();
-    metrics.push(metric);
-    this.saveCustomMetrics(metrics);
+    this.saveCustomMetrics([...metrics, metric]);
   },
 
   removeCustomMetric(metricId: string): void {
@@ -62,19 +97,18 @@ export const storageService = {
     this.saveCustomMetrics(filtered);
   },
 
+  // --- Comparison Groups ---
   getComparisonGroups(): ComparisonGroup[] {
-    const stored = localStorage.getItem(STORAGE_KEYS.COMPARISON_GROUPS);
-    return stored ? JSON.parse(stored) : [];
+    return getItem(STORAGE_KEYS.COMPARISON_GROUPS, []);
   },
 
   saveComparisonGroups(groups: ComparisonGroup[]): void {
-    localStorage.setItem(STORAGE_KEYS.COMPARISON_GROUPS, JSON.stringify(groups));
+    setItem(STORAGE_KEYS.COMPARISON_GROUPS, groups);
   },
 
   addComparisonGroup(group: ComparisonGroup): void {
     const groups = this.getComparisonGroups();
-    groups.push(group);
-    this.saveComparisonGroups(groups);
+    this.saveComparisonGroups([...groups, group]);
   },
 
   removeComparisonGroup(groupId: string): void {
@@ -83,12 +117,14 @@ export const storageService = {
     this.saveComparisonGroups(filtered);
   },
 
+  // --- Key Metrics ---
   getKeyMetrics(): string[] {
-    const stored = localStorage.getItem(STORAGE_KEYS.KEY_METRICS);
-    return stored ? JSON.parse(stored) : ['ticker', 'name', 'marketCap', 'peRatio', 'roe'];
+    // Provide a sensible default list
+    const defaultMetrics = ['ticker', 'name', 'marketCap', 'peRatio', 'roe'];
+    return getItem(STORAGE_KEYS.KEY_METRICS, defaultMetrics);
   },
 
   saveKeyMetrics(metricIds: string[]): void {
-    localStorage.setItem(STORAGE_KEYS.KEY_METRICS, JSON.stringify(metricIds));
+    setItem(STORAGE_KEYS.KEY_METRICS, metricIds);
   },
 };

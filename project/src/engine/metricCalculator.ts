@@ -1,4 +1,4 @@
-import { RawFinancialData, CustomMetric, ComparisonGroup, Company } from '../types';
+import { RawFinancialData, CustomMetric, ComparisonGroup, Company, CoreMetric } from '../types';
 import { coreMetrics } from './coreMetrics';
 
 export function calculateCoreMetric(metricId: string, data: RawFinancialData): string | number | null {
@@ -7,40 +7,53 @@ export function calculateCoreMetric(metricId: string, data: RawFinancialData): s
   return metric.calculate(data);
 }
 
+/**
+ * [REFACTOR 1]
+ * Replaced 'eval()' with the much safer 'new Function()' approach.
+ * This removes the "magic" and security risks by creating a function
+ * with a constrained scope, rather than executing code in the global scope.
+ */
 export function calculateCustomMetric(
   metric: CustomMetric,
   data: RawFinancialData
 ): number | null {
   try {
-    const formula = metric.formula;
-    let processedFormula = formula;
-
-    const fieldNames = Object.keys(data).filter(key => typeof data[key] === 'number');
-
-    fieldNames.sort((a, b) => b.length - a.length);
-
-    for (const field of fieldNames) {
-      const value = data[field];
-      if (typeof value === 'number') {
-        const regex = new RegExp(`\\b${field}\\b`, 'g');
-        processedFormula = processedFormula.replace(regex, value.toString());
+    // 1. Create a "safe scope" containing only the numeric fields from data.
+    const scope: { [key: string]: number } = {};
+    for (const key in data) {
+      if (typeof data[key] === 'number') {
+        scope[key] = data[key] as number;
       }
     }
 
-    const allowedChars = /^[\d\s+\-*/.()]+$/;
-    if (!allowedChars.test(processedFormula)) {
-      console.error('Invalid formula after substitution:', processedFormula);
-      return null;
-    }
+    const fieldNames = Object.keys(scope);
+    const fieldValues = Object.values(scope);
 
-    const result = eval(processedFormula);
-    return typeof result === 'number' && !isNaN(result) ? result : null;
+    // 2. Create a new function. The field names are the arguments,
+    //    and the formula is the function body.
+    //    e.g., new Function('totalDebt', 'netIncome', 'return totalDebt / netIncome')
+    const safeEvaluator = new Function(...fieldNames, `return ${metric.formula}`);
+
+    // 3. Call the function, passing the field values as arguments.
+    const result = safeEvaluator(...fieldValues);
+
+    return typeof result === 'number' && isFinite(result) ? result : null;
   } catch (error) {
-    console.error('Error calculating custom metric:', error);
+    console.error(`Error calculating custom metric "${metric.name}":`, error);
     return null;
   }
 }
 
+/**
+ * [REFACTOR 2]
+ * This function is now generic and follows the Open/Closed Principle.
+ * It reads the 'aggregationMethod' from each metric's definition
+ * instead of hard-coding the logic for every metric.
+ *
+ * NOTE: This requires you to update your 'CoreMetric' type in 'types.ts'
+ * and the 'coreMetrics' definitions to include:
+ * `aggregationMethod: 'sum' | 'weightedAverage';`
+ */
 export function aggregateGroupData(
   group: ComparisonGroup,
   companies: Company[]
@@ -58,6 +71,7 @@ export function aggregateGroupData(
   const marketCaps = validData.map(d => d.marketCap || 0).filter(m => m > 0);
   const totalMarketCap = marketCaps.reduce((sum, mc) => sum + mc, 0);
 
+  // --- Helper: Weighted Average ---
   const weightedAverage = (field: keyof RawFinancialData): number | undefined => {
     if (totalMarketCap === 0) return undefined;
     let weightedSum = 0;
@@ -71,10 +85,10 @@ export function aggregateGroupData(
         validWeights += mc;
       }
     });
-
     return validWeights > 0 ? weightedSum / validWeights : undefined;
   };
 
+  // --- Helper: Sum ---
   const sum = (field: keyof RawFinancialData): number | undefined => {
     let total = 0;
     let hasValue = false;
@@ -88,65 +102,63 @@ export function aggregateGroupData(
     return hasValue ? total : undefined;
   };
 
-  return {
+  // --- Generic Aggregation Logic ---
+  const aggregatedData: RawFinancialData = {
     ticker: group.id,
     name: group.name,
     industry: `Group of ${groupCompanies.length} companies`,
-    marketCap: sum('marketCap'),
-    price: weightedAverage('price'),
-    revenueTTM: sum('revenueTTM'),
-    revenueQoQ: weightedAverage('revenueQoQ'),
-    revenueYoY: weightedAverage('revenueYoY'),
-    revenue3Yr: weightedAverage('revenue3Yr'),
-    revenue5Yr: weightedAverage('revenue5Yr'),
-    netIncome: sum('netIncome'),
-    eps: weightedAverage('eps'),
-    epsGrowthYoY: weightedAverage('epsGrowthYoY'),
-    epsGrowth3Yr: weightedAverage('epsGrowth3Yr'),
-    epsGrowth5Yr: weightedAverage('epsGrowth5Yr'),
-    peRatio: weightedAverage('peRatio'),
-    pbRatio: weightedAverage('pbRatio'),
-    psRatio: weightedAverage('psRatio'),
-    pegRatio: weightedAverage('pegRatio'),
-    evToEbitda: weightedAverage('evToEbitda'),
-    grossMargin: weightedAverage('grossMargin'),
-    operatingMargin: weightedAverage('operatingMargin'),
-    netMargin: weightedAverage('netMargin'),
-    roe: weightedAverage('roe'),
-    roa: weightedAverage('roa'),
-    currentRatio: weightedAverage('currentRatio'),
-    quickRatio: weightedAverage('quickRatio'),
-    debtToEquity: weightedAverage('debtToEquity'),
-    totalCash: sum('totalCash'),
-    totalDebt: sum('totalDebt'),
-    dividendYield: weightedAverage('dividendYield'),
-    payoutRatio: weightedAverage('payoutRatio'),
-    ebitda: sum('ebitda'),
-    enterpriseValue: sum('enterpriseValue'),
-    bookValue: sum('bookValue'),
-    totalAssets: sum('totalAssets'),
-    totalEquity: sum('totalEquity'),
   };
+
+  // Loop through all core metrics and aggregate them based on their defined method
+  coreMetrics.forEach((metric: CoreMetric) => {
+    // We assume metric.id is a valid key in RawFinancialData
+    const field = metric.id as keyof RawFinancialData;
+
+    if (metric.aggregationMethod === 'sum') {
+      aggregatedData[field] = sum(field);
+    } else if (metric.aggregationMethod === 'weightedAverage') {
+      aggregatedData[field] = weightedAverage(field);
+    }
+    // If no aggregationMethod is specified, it's skipped (e.g., 'price')
+    // We will handle 'price' and 'marketCap' manually as special cases.
+  });
+
+  // --- Manual/Special Case Aggregations ---
+  // MarketCap is always the sum, and the basis for other calculations.
+  aggregatedData.marketCap = sum('marketCap');
+  // Price is a special weighted average that should always be calculated.
+  aggregatedData.price = weightedAverage('price');
+
+  // We no longer need the giant, hard-coded return statement.
+  return aggregatedData;
 }
 
 export function formatMetricValue(value: string | number | null, format: string): string {
   if (value === null || value === undefined) return 'N/A';
 
   if (typeof value === 'string') return value;
+  
+  // Added isFinite check to handle Infinity or -Infinity
+  if (!isFinite(value)) return 'N/A';
 
-  switch (format) {
-    case 'currency':
-      if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-      if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-      if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-      return `$${value.toFixed(2)}`;
-    case 'percentage':
-      return `${value.toFixed(2)}%`;
-    case 'ratio':
-      return value.toFixed(2);
-    case 'number':
-      return value.toLocaleString();
-    default:
-      return value.toString();
+  try {
+    switch (format) {
+      case 'currency':
+        if (Math.abs(value) >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+        if (Math.abs(value) >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+        if (Math.abs(value) >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+        return `$${value.toFixed(2)}`;
+      case 'percentage':
+        return `${value.toFixed(2)}%`;
+      case 'ratio':
+        return value.toFixed(2);
+      case 'number':
+        return value.toLocaleString();
+      default:
+        return value.toString();
+    }
+  } catch (error) {
+    console.error("Error formatting value:", value, error);
+    return 'N/A';
   }
 }

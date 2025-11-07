@@ -12,15 +12,23 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Theme, // <-- Fixed 'any'
 } from '@mui/material';
 import { X, Plus, Download } from 'lucide-react';
-import React, { useState } from 'react'; // Added React
-import { Company, ComparisonGroup, CoreMetric, CustomMetric, RawFinancialData } from '../types';
+import React, { useState, useMemo, useCallback } from 'react'; // <-- Added hooks
+import {
+  Company,
+  ComparisonGroup,
+  CustomMetric,
+  RawFinancialData,
+} from '../types';
 import { coreMetrics } from '../engine/coreMetrics';
-import { calculateCoreMetric, calculateCustomMetric, formatMetricValue } from '../engine/metricCalculator';
-import { GlassDialog } from './GlassDialog'; // Import the new component
-import * as XLSX from 'xlsx'; // Added for Excel export. Run 'npm install xlsx'
-import { AddCompanyDialog } from './AddCompanyDialog'; 
+import { GlassDialog } from './GlassDialog';
+import { AddCompanyDialog } from './AddCompanyDialog';
+import { useComparisonExporter } from './useComparisonExporter'; // <-- 1. IMPORTED HOOK
+import { MetricCategorySection } from './MetricCategorySection'; // <-- 2. IMPORTED COMPONENT
+
+// Note: calculateCoreMetric, calculateCustomMetric, and XLSX are no longer imported here
 
 interface ComparisonViewProps {
   open: boolean;
@@ -30,7 +38,7 @@ interface ComparisonViewProps {
   onClose: () => void;
   onAddCompany: (ticker: string) => void;
   onRemoveItem: (itemId: string) => void;
-  onToggleSelect: (id: string) => void; // <-- 1. Added new prop
+  onToggleSelect: (id: string) => void;
 }
 
 const scrollbarStyles = {
@@ -47,111 +55,48 @@ export function ComparisonView({
   onClose,
   onAddCompany,
   onRemoveItem,
-  onToggleSelect, // <-- 1. Get new prop
+  onToggleSelect,
 }: ComparisonViewProps) {
-  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const groupedMetrics = coreMetrics.reduce((acc, metric) => {
-    if (!acc[metric.category]) acc[metric.category] = [];
-    acc[metric.category].push(metric);
-    return acc;
-  }, {} as Record<string, typeof coreMetrics>);
+  // 1. All export logic is now in this hook
+  const {
+    exportMenuAnchor,
+    handleOpenExportMenu,
+    handleCloseExportMenu,
+    exportHandlers,
+  } = useComparisonExporter(items, itemsData, customMetrics);
 
-  const getItemName = (item: Company | ComparisonGroup) =>
-    'isGroup' in item ? item.name : item.ticker;
+  // 2. Memoize expensive calculations
+  const groupedMetrics = useMemo(() => {
+    return coreMetrics.reduce((acc, metric) => {
+      if (!acc[metric.category]) acc[metric.category] = [];
+      acc[metric.category].push(metric);
+      return acc;
+    }, {} as Record<string, typeof coreMetrics>);
+  }, []); // coreMetrics is static, so empty array is fine
 
-  const getItemData = (item: Company | ComparisonGroup): RawFinancialData | null =>
-    itemsData.get(item.id) || null;
+  // 3. Stabilize helper functions with useCallback
+  const getItemName = useCallback((item: Company | ComparisonGroup) =>
+    'isGroup' in item ? item.name : item.ticker,
+  []);
 
-  // --- Data Collation for Export ---
-  const getAllMetrics = (): (CoreMetric | CustomMetric)[] => {
-    const allMetrics: (CoreMetric | CustomMetric)[] = [];
-    Object.values(groupedMetrics).forEach(metrics => allMetrics.push(...metrics));
-    allMetrics.push(...customMetrics);
-    return allMetrics;
-  };
-  
-  const getFormattedData = () => {
-    const allMetrics = getAllMetrics();
-    const data = allMetrics.map(metric => {
-      const row: Record<string, any> = { Metric: metric.name };
-      items.forEach(item => {
-        const itemData = getItemData(item);
-        const value = itemData
-          ? 'formula' in metric
-            ? calculateCustomMetric(metric, itemData)
-            : calculateCoreMetric(metric.id, itemData)
-          : null;
-        row[getItemName(item)] = formatMetricValue(value, metric.format);
-      });
-      return row;
-    });
-    return data;
-  };
-  
-  const downloadFile = (content: string, fileName: string, contentType: string) => {
-    const blob = new Blob([content], { type: contentType });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-  
-  const handleExportJSON = () => {
-    const data = getFormattedData();
-    downloadFile(JSON.stringify(data, null, 2), 'comparison.json', 'application/json');
-    setExportMenuAnchor(null);
-  };
-  
-  const handleExportCSV = () => {
-    const data = getFormattedData();
-    if (data.length === 0) return;
-    
-    const headers = Object.keys(data[0]);
-    let csvContent = headers.join(',') + '\n';
-    
-    data.forEach(row => {
-      const values = headers.map(header => {
-        let cell = row[header] === null || row[header] === undefined ? '' : row[header];
-        if (typeof cell === 'string' && cell.includes(',')) {
-          cell = `"${cell}"`;
-        }
-        return cell;
-      });
-      csvContent += values.join(',') + '\n';
-    });
-    
-    downloadFile(csvContent, 'comparison.csv', 'text/csv;charset=utf-8;');
-    setExportMenuAnchor(null);
-  };
+  const getItemData = useCallback((item: Company | ComparisonGroup): RawFinancialData | null =>
+    itemsData.get(item.id) || null,
+  [itemsData]);
 
-  const handleExportExcel = () => {
-    const data = getFormattedData();
-    if (data.length === 0) return;
+  const handleAddAndSelect = useCallback((ticker: string) => {
+    onAddCompany(ticker);
+    onToggleSelect(ticker);
+  }, [onAddCompany, onToggleSelect]);
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
-    XLSX.writeFile(wb, 'comparison.xlsx');
-    
-    setExportMenuAnchor(null);
-  };
-  
-  // 2. New handler to add company to main list AND selection
-  const handleAddAndSelect = (ticker: string) => {
-    onAddCompany(ticker); // Adds company to main list
-    onToggleSelect(ticker); // Adds company to selection (and thus this grid)
-    // We let the AddCompanyDialog close itself
-  };
-  // ---------------------------------
+  // --- All export-related functions (getFormattedData, handleExport..., etc.) are now GONE ---
 
+  // --- Styling Constants ---
   const headerCellSx = {
     fontWeight: 'bold',
     minWidth: 150,
-    backgroundColor: (theme: any) =>
+    backgroundColor: (theme: Theme) => // <-- Fixed 'any'
       theme.palette.mode === 'dark' ? 'rgba(18, 30, 54, 0.85)' : 'rgba(255, 255, 255, 0.85)',
     backdropFilter: 'blur(10px)',
   };
@@ -166,6 +111,7 @@ export function ComparisonView({
   };
 
   // --- Define Title and Actions for GlassDialog ---
+  // (These could also be extracted to their own components in a future refactor)
   const dialogTitle = (
     <Box display="flex" alignItems="center" gap={2}>
       <Typography variant="h6" fontWeight="600">
@@ -179,7 +125,7 @@ export function ComparisonView({
     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
       <Box>
         <Button
-          onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+          onClick={handleOpenExportMenu} // <-- Use handler from hook
           variant="outlined"
           startIcon={<Download size={18} />}
           sx={{ borderRadius: 2, mr: 1 }}
@@ -189,15 +135,15 @@ export function ComparisonView({
         <Menu
           anchorEl={exportMenuAnchor}
           open={Boolean(exportMenuAnchor)}
-          onClose={() => setExportMenuAnchor(null)}
+          onClose={handleCloseExportMenu} // <-- Use handler from hook
         >
-          <MenuItem onClick={handleExportCSV}>Export as CSV</MenuItem>
-          <MenuItem onClick={handleExportJSON}>Export as JSON</MenuItem>
-          <MenuItem onClick={handleExportExcel}>Export as Excel (.xlsx)</MenuItem>
+          <MenuItem onClick={exportHandlers.csv}>Export as CSV</MenuItem>
+          <MenuItem onClick={exportHandlers.json}>Export as JSON</MenuItem>
+          <MenuItem onClick={exportHandlers.excel}>Export as Excel (.xlsx)</MenuItem>
         </Menu>
-        
+
         <Button
-          onClick={() => setShowAddDialog(true)} 
+          onClick={() => setShowAddDialog(true)}
           variant="outlined"
           startIcon={<Plus size={18} />}
           sx={{ borderRadius: 2 }}
@@ -205,7 +151,7 @@ export function ComparisonView({
           Add Company
         </Button>
       </Box>
-      
+
       <Button onClick={onClose} variant="contained" sx={{ borderRadius: 2 }}>
         Close
       </Button>
@@ -223,26 +169,25 @@ export function ComparisonView({
         maxWidth="xl"
         fullWidth
       >
-        {/* --- Single Table Container --- */}
         <TableContainer
           sx={{
             ...scrollbarStyles,
             overflowX: 'auto',
             borderRadius: 2,
-            backgroundColor: (theme: any) =>
+            backgroundColor: (theme: Theme) => // <-- Fixed 'any'
               theme.palette.mode === 'dark'
                 ? 'rgba(0, 0, 0, 0.2)'
                 : 'rgba(255, 255, 255, 0.3)',
             backdropFilter: 'blur(5px)',
             border: '1px solid',
-            borderColor: (theme: any) =>
+            borderColor: (theme: Theme) => // <-- Fixed 'any'
               theme.palette.mode === 'dark'
                 ? 'rgba(255, 255, 255, 0.1)'
                 : 'rgba(0, 0, 0, 0.1)',
           }}
         >
           <Table size="small" stickyHeader>
-            {/* --- Single Table Head --- */}
+            {/* --- Table Head --- */}
             <TableHead>
               <TableRow>
                 <TableCell
@@ -267,17 +212,17 @@ export function ComparisonView({
                       {'isGroup' in item && (
                         <Chip label="Group" size="small" sx={{ ml: 1 }} />
                       )}
-                      <IconButton 
-                        size="small" 
-                        onClick={() => onRemoveItem(item.id)} 
+                      <IconButton
+                        size="small"
+                        onClick={() => onRemoveItem(item.id)}
                         color="error"
-                        sx={{ 
+                        sx={{
                           ml: 0.5,
                           backgroundColor: 'rgba(211, 47, 47, 0.1)',
-                          transition: 'all 0.2s ease', 
+                          transition: 'all 0.2s ease',
                           '&:hover': {
                             backgroundColor: 'rgba(211, 47, 47, 0.2)',
-                            transform: 'scale(1.1)', 
+                            transform: 'scale(1.1)',
                           }
                         }}
                       >
@@ -288,111 +233,33 @@ export function ComparisonView({
                 ))}
               </TableRow>
             </TableHead>
-            {/* --- Single Table Body --- */}
+
+            {/* --- 4. REFACTORED TABLE BODY --- */}
             <TableBody>
               {Object.entries(groupedMetrics).map(([category, metrics]) => (
-                // Use React.Fragment to group rows by category
-                <React.Fragment key={category}>
-                  {/* Category Header Row */}
-                  <TableRow>
-                    <TableCell
-                      colSpan={items.length + 1}
-                      sx={{
-                        backgroundColor: 'rgba(120, 120, 120, 0.1)',
-                        backdropFilter: 'blur(3px)',
-                        py: 1.5,
-                      }}
-                    >
-                      <Typography variant="h6" color="primary.light">
-                        {category}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                  {/* Metric Rows */}
-                  {metrics.map((metric) => (
-                    <TableRow
-                      key={metric.id}
-                      hover
-                      sx={{ '&:hover': { bgcolor: 'action.hover' } }}
-                    >
-                      <TableCell
-                        sx={{
-                          ...stickyColumnBaseSx,
-                          zIndex: 1,
-                          backgroundColor: 'transparent',
-                          'tr:hover &': {
-                            backgroundColor: (theme: any) =>
-                              theme.palette.action.hover,
-                          },
-                        }}
-                      >
-                        {metric.name}
-                      </TableCell>
-                      {items.map((item) => {
-                        const data = getItemData(item);
-                        const value = data ? calculateCoreMetric(metric.id, data) : null;
-                        const formatted = formatMetricValue(value, metric.format);
-                        return (
-                          <TableCell key={item.id} align="right">
-                            {formatted}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </React.Fragment>
+                <MetricCategorySection
+                  key={category}
+                  title={category}
+                  metrics={metrics}
+                  items={items}
+                  itemsData={itemsData}
+                  isCustom={false}
+                  stickyColumnBaseSx={stickyColumnBaseSx}
+                  getItemData={getItemData}
+                />
               ))}
 
               {customMetrics.length > 0 && (
-                <React.Fragment>
-                  {/* Custom Metrics Header Row */}
-                  <TableRow>
-                    <TableCell
-                      colSpan={items.length + 1}
-                      sx={{
-                        backgroundColor: 'rgba(120, 120, 120, 0.1)',
-                        backdropFilter: 'blur(3px)',
-                        py: 1.5,
-                      }}
-                    >
-                      <Typography variant="h6" color="primary.light">
-                        Custom Metrics
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                  {/* Custom Metric Rows */}
-                  {customMetrics.map((metric) => (
-                    <TableRow
-                      key={metric.id}
-                      hover
-                      sx={{ '&:hover': { bgcolor: 'action.hover' } }}
-                    >
-                      <TableCell
-                        sx={{
-                          ...stickyColumnBaseSx,
-                          zIndex: 1,
-                          backgroundColor: 'transparent',
-                          'tr:hover &': {
-                            backgroundColor: (theme: any) =>
-                              theme.palette.action.hover,
-                          },
-                        }}
-                      >
-                        {metric.name}
-                      </TableCell>
-                      {items.map((item) => {
-                        const data = getItemData(item);
-                        const value = data ? calculateCustomMetric(metric, data) : null;
-                        const formatted = formatMetricValue(value, metric.format);
-                        return (
-                          <TableCell key={item.id} align="right">
-                            {formatted}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </React.Fragment>
+                <MetricCategorySection
+                  key="custom-metrics"
+                  title="Custom Metrics"
+                  metrics={customMetrics}
+                  items={items}
+                  itemsData={itemsData}
+                  isCustom={true}
+                  stickyColumnBaseSx={stickyColumnBaseSx}
+                  getItemData={getItemData}
+                />
               )}
             </TableBody>
           </Table>
@@ -402,9 +269,8 @@ export function ComparisonView({
       <AddCompanyDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        onAdd={handleAddAndSelect} // <-- 3. Use new handler
+        onAdd={handleAddAndSelect}
       />
     </>
   );
 }
-

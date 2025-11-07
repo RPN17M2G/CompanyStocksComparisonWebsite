@@ -48,6 +48,7 @@ export interface CoreMetric {
   category: string;
   format: 'currency' | 'percentage' | 'ratio' | 'number' | 'text';
   calculate: (data: RawFinancialData) => string | number | null;
+  aggregationMethod?: 'sum' | 'weightedAverage'; 
 }
 
 export interface CustomMetric {
