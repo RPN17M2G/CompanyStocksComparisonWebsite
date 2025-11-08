@@ -1,4 +1,4 @@
-import { IDataAdapter, RawFinancialData } from '../types';
+import { IDataAdapter, RawFinancialData } from '../shared/types/types';
 
 export abstract class BaseDataAdapter implements IDataAdapter {
   abstract name: string;

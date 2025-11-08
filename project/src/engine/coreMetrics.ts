@@ -1,8 +1,7 @@
-import { CoreMetric, RawFinancialData } from '../types';
+import { CoreMetric, RawFinancialData } from '../shared/types/types';
 
 export const coreMetrics: CoreMetric[] = [
   // --- Basic Information ---
-  // Text fields don't need an aggregation method
   {
     id: 'ticker',
     name: 'Ticker',
@@ -37,7 +36,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Basic Information',
     format: 'currency',
     calculate: (data) => data.marketCap ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'price',
@@ -45,7 +44,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Basic Information',
     format: 'currency',
     calculate: (data) => data.price ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
 
   // --- Valuation ---
@@ -55,7 +54,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Valuation',
     format: 'ratio',
     calculate: (data) => data.peRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'pbRatio',
@@ -63,7 +62,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Valuation',
     format: 'ratio',
     calculate: (data) => data.pbRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'psRatio',
@@ -71,7 +70,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Valuation',
     format: 'ratio',
     calculate: (data) => data.psRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'pegRatio',
@@ -79,7 +78,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Valuation',
     format: 'ratio',
     calculate: (data) => data.pegRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'evToEbitda',
@@ -87,7 +86,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Valuation',
     format: 'ratio',
     calculate: (data) => data.evToEbitda ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
 
   // --- Profitability ---
@@ -97,7 +96,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Profitability',
     format: 'percentage',
     calculate: (data) => data.grossMargin ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'operatingMargin',
@@ -105,7 +104,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Profitability',
     format: 'percentage',
     calculate: (data) => data.operatingMargin ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'netMargin',
@@ -113,7 +112,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Profitability',
     format: 'percentage',
     calculate: (data) => data.netMargin ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'roe',
@@ -121,7 +120,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Profitability',
     format: 'percentage',
     calculate: (data) => data.roe ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'roa',
@@ -129,7 +128,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Profitability',
     format: 'percentage',
     calculate: (data) => data.roa ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
 
   // --- Growth ---
@@ -139,7 +138,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.revenueQoQ ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'revenueYoY',
@@ -147,7 +146,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.revenueYoY ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'revenue3Yr',
@@ -155,7 +154,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.revenue3Yr ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'revenue5Yr',
@@ -163,7 +162,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.revenue5Yr ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'epsGrowthYoY',
@@ -171,7 +170,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.epsGrowthYoY ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'epsGrowth3Yr',
@@ -179,7 +178,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.epsGrowth3Yr ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'epsGrowth5Yr',
@@ -187,7 +186,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Growth',
     format: 'percentage',
     calculate: (data) => data.epsGrowth5Yr ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
 
   // --- Financial Health ---
@@ -197,7 +196,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financial Health',
     format: 'ratio',
     calculate: (data) => data.currentRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'quickRatio',
@@ -205,7 +204,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financial Health',
     format: 'ratio',
     calculate: (data) => data.quickRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'debtToEquity',
@@ -213,7 +212,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financial Health',
     format: 'ratio',
     calculate: (data) => data.debtToEquity ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'totalCash',
@@ -221,7 +220,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financial Health',
     format: 'currency',
     calculate: (data) => data.totalCash ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'totalDebt',
@@ -229,7 +228,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financial Health',
     format: 'currency',
     calculate: (data) => data.totalDebt ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
 
   // --- Dividends ---
@@ -239,7 +238,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Dividends',
     format: 'percentage',
     calculate: (data) => data.dividendYield ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'payoutRatio',
@@ -247,7 +246,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Dividends',
     format: 'percentage',
     calculate: (data) => data.payoutRatio ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
     
   // --- Other Financial Data (for aggregation) ---
@@ -258,7 +257,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.revenueTTM ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'netIncome',
@@ -266,7 +265,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.netIncome ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'eps',
@@ -274,7 +273,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.eps ?? null,
-    aggregationMethod: 'weightedAverage', // <-- ADDED
+    aggregationMethod: 'weightedAverage',  
   },
   {
     id: 'ebitda',
@@ -282,7 +281,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.ebitda ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'enterpriseValue',
@@ -290,7 +289,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.enterpriseValue ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'bookValue',
@@ -298,7 +297,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.bookValue ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'totalAssets',
@@ -306,7 +305,7 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.totalAssets ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
   {
     id: 'totalEquity',
@@ -314,6 +313,6 @@ export const coreMetrics: CoreMetric[] = [
     category: 'Financials',
     format: 'currency',
     calculate: (data) => data.totalEquity ?? null,
-    aggregationMethod: 'sum', // <-- ADDED
+    aggregationMethod: 'sum',  
   },
 ];

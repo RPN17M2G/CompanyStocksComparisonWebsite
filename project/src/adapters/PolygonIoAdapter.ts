@@ -1,5 +1,5 @@
 import { BaseDataAdapter } from './BaseAdapter';
-import { RawFinancialData } from '../types';
+import { RawFinancialData } from '../shared/types/types';
 
 export class PolygonAdapter extends BaseDataAdapter {
   name = 'Polygon.io';

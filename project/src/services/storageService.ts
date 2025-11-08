@@ -1,4 +1,4 @@
-import { DataProviderConfig, CustomMetric, ComparisonGroup } from '../types';
+import { DataProviderConfig, CustomMetric, ComparisonGroup } from '../shared/types/types';
 
 const STORAGE_KEYS = {
   COMPANIES: 'stock_dashboard_companies',
@@ -7,9 +7,6 @@ const STORAGE_KEYS = {
   COMPARISON_GROUPS: 'stock_dashboard_groups',
   KEY_METRICS: 'stock_dashboard_key_metrics',
 };
-
-// --- [REFACTOR 1] ---
-// Generic, safe, and DRY helper functions for local storage.
 
 /**
  * Safely retrieves and parses a JSON item from localStorage.
@@ -40,10 +37,6 @@ function setItem<T>(key: string, value: T): void {
     console.error(`Error saving stored item ${key}:`, error);
   }
 }
-
-// --- [REFACTOR 2] ---
-// The storageService is now just a clean API layer on top
-// of our generic helpers.
 
 export const storageService = {
   // --- Companies ---
@@ -119,7 +112,6 @@ export const storageService = {
 
   // --- Key Metrics ---
   getKeyMetrics(): string[] {
-    // Provide a sensible default list
     const defaultMetrics = ['ticker', 'name', 'marketCap', 'peRatio', 'roe'];
     return getItem(STORAGE_KEYS.KEY_METRICS, defaultMetrics);
   },
