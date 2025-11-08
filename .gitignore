@@ -102,9 +102,6 @@ out
 .cache/
 public
 
-# vuepress build output
-.vuepress/dist
-
 # Serverless build output
 .serverless/
 
@@ -119,10 +116,6 @@ public
 
 # Stores DS_Store files
 .DS_Store
-
-# Vite build output
-dist
-dist-ssr
 
 # Vitest coverage
 /coverage
@@ -140,8 +133,6 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
-dist-ssr
 *.local
 
 .vscode/*
