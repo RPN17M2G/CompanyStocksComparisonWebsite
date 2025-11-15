@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Button,
   TextField,
@@ -12,18 +12,8 @@ import {
   Theme,
   SxProps,
 } from '@mui/material';
-import { CustomMetric } from '../../shared/types/types';
-
-// --- Fields and Styles moved from parent ---
-const availableFields = [
-  'marketCap', 'price', 'revenueTTM', 'revenueQoQ', 'revenueYoY', 'revenue3Yr', 
-  'revenue5Yr', 'netIncome', 'eps', 'epsGrowthYoY', 'epsGrowth3Yr', 'epsGrowth5Yr',
-  'peRatio', 'pbRatio', 'psRatio', 'pegRatio', 'evToEbitda', 'grossMargin', 
-  'operatingMargin', 'netMargin', 'roe', 'roa', 'currentRatio', 'quickRatio',
-  'debtToEquity', 'totalCash', 'totalDebt', 'dividendYield', 'payoutRatio', 'ebitda',
-  'enterpriseValue', 'bookValue', 'totalAssets', 'totalEquity', 'currentAssets',
-  'currentLiabilities',
-];
+import { CustomMetric, RawFinancialData } from '../../shared/types/types';
+import { getAllAvailableMetrics } from '../../engine/dynamicMetrics';
 
 const glassyChipSx: SxProps<Theme> = {
   cursor: 'pointer',
@@ -58,12 +48,23 @@ const formFieldSx: SxProps<Theme> = {
 interface MetricCreatorFormProps {
   onAddMetric: (metric: CustomMetric) => void;
   onCancel: () => void;
+  availableData?: RawFinancialData[]; // Optional: provide actual company data to get dynamic fields
 }
 
-export function MetricCreatorForm({ onAddMetric, onCancel }: MetricCreatorFormProps) {
+export function MetricCreatorForm({ onAddMetric, onCancel, availableData = [] }: MetricCreatorFormProps) {
   const [metricName, setMetricName] = useState('');
   const [formula, setFormula] = useState('');
   const [format, setFormat] = useState<'currency' | 'percentage' | 'ratio' | 'number'>('ratio');
+
+  // Dynamically get available fields from actual company data
+  const availableFields = useMemo(() => {
+    if (availableData && availableData.length > 0) {
+      const metrics = getAllAvailableMetrics(availableData);
+      return metrics.map(m => m.id).sort();
+    }
+    // Fallback to empty array if no data provided
+    return [];
+  }, [availableData]);
 
   const handleCreate = useCallback(() => {
     if (!metricName.trim() || !formula.trim()) return;
@@ -119,19 +120,54 @@ export function MetricCreatorForm({ onAddMetric, onCancel }: MetricCreatorFormPr
 
       <Typography variant="body2" color="text.secondary" mb={1}>
         Available Fields (click to insert):
+        {availableFields.length === 0 && (
+          <Typography component="span" variant="caption" sx={{ ml: 1, fontStyle: 'italic' }}>
+            Add companies first to see available fields
+          </Typography>
+        )}
       </Typography>
-      <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-        {availableFields.map(field => (
-          <Chip
-            key={field}
-            label={field}
-            onClick={() => insertField(field)}
-            size="small"
-            sx={glassyChipSx}
-            color="primary"
-          />
-        ))}
-      </Box>
+      {availableFields.length > 0 ? (
+        <Box 
+          display="flex" 
+          flexWrap="wrap" 
+          gap={1} 
+          mb={2}
+          sx={{
+            maxHeight: 200,
+            overflowY: 'auto',
+            p: 1,
+            borderRadius: 2,
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+          }}
+        >
+          {availableFields.map(field => (
+            <Chip
+              key={field}
+              label={field}
+              onClick={() => insertField(field)}
+              size="small"
+              sx={glassyChipSx}
+              color="primary"
+            />
+          ))}
+        </Box>
+      ) : (
+        <Box 
+          sx={{ 
+            p: 2, 
+            mb: 2, 
+            borderRadius: 2,
+            backgroundColor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+            textAlign: 'center',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            No company data available. Add companies to see available fields.
+          </Typography>
+        </Box>
+      )}
 
       <TextField
         fullWidth

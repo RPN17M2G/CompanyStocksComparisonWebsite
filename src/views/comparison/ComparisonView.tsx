@@ -22,7 +22,7 @@ import {
   CustomMetric,
   RawFinancialData,
 } from '../../shared/types/types';
-import { coreMetrics } from '../../engine/coreMetrics';
+import { getAllAvailableMetrics } from '../../engine/dynamicMetrics';
 import { GlassDialog } from '../../shared/ui/GlassDialog';
 import { AddCompanyDialog } from '../../features/manage-companies/AddCompanyDialog';
 import { useComparisonExporter } from './useComparisonExporter';
@@ -64,13 +64,19 @@ export function ComparisonView({
     exportHandlers,
   } = useComparisonExporter(items, itemsData, customMetrics);
 
+  const allMetrics = useMemo(() => {
+    const allData = Array.from(itemsData.values()).filter(Boolean) as RawFinancialData[];
+    if (allData.length === 0) return [];
+    return getAllAvailableMetrics(allData);
+  }, [itemsData]);
+
   const groupedMetrics = useMemo(() => {
-    return coreMetrics.reduce((acc, metric) => {
+    return allMetrics.reduce((acc, metric) => {
       if (!acc[metric.category]) acc[metric.category] = [];
       acc[metric.category].push(metric);
       return acc;
-    }, {} as Record<string, typeof coreMetrics>);
-  }, []);
+    }, {} as Record<string, typeof allMetrics>);
+  }, [allMetrics]);
 
   const getItemName = useCallback((item: Company | ComparisonGroup) =>
     'isGroup' in item ? item.name : item.ticker,

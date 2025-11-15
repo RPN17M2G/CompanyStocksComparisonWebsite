@@ -11,17 +11,19 @@ import {
   ComparisonGroup,
   CoreMetric,
   CustomMetric,
+  DynamicMetric,
   RawFinancialData,
 } from '../../shared/types/types';
 import {
   calculateCoreMetric,
   calculateCustomMetric,
+  calculateDynamicMetric,
   formatMetricValue,
 } from '../../engine/metricCalculator';
 
 interface MetricCategorySectionProps {
   title: string;
-  metrics: (CoreMetric | CustomMetric)[];
+  metrics: (CoreMetric | CustomMetric | DynamicMetric)[];
   items: (Company | ComparisonGroup)[];
   itemsData: Map<string, RawFinancialData>;
   isCustom: boolean;
@@ -39,14 +41,35 @@ export function MetricCategorySection({
 }: MetricCategorySectionProps) {
 
   const calculateMetric = (
-    metric: CoreMetric | CustomMetric,
+    metric: CoreMetric | CustomMetric | DynamicMetric,
     data: RawFinancialData
   ) => {
     if (isCustom) {
       return calculateCustomMetric(metric as CustomMetric, data);
     }
+    // Check if it's a DynamicMetric (has format but no calculate function)
+    if ('format' in metric && !('calculate' in metric)) {
+      return calculateDynamicMetric(metric as DynamicMetric, data);
+    }
+    // Legacy CoreMetric with calculate function
     return calculateCoreMetric((metric as CoreMetric).id, data);
   };
+
+  // Filter metrics to only show those with available data for at least one item
+  const availableMetrics = metrics.filter(metric => {
+    return items.some(item => {
+      const data = getItemData(item);
+      if (!data) return false;
+      const value = calculateMetric(metric, data);
+      const formatted = formatMetricValue(value, metric.format);
+      return formatted !== null;
+    });
+  });
+
+  // Only render category if it has available metrics
+  if (availableMetrics.length === 0) {
+    return null;
+  }
 
   return (
     <React.Fragment>
@@ -67,7 +90,7 @@ export function MetricCategorySection({
       </TableRow>
 
       {/* Metric Rows */}
-      {metrics.map((metric) => (
+      {availableMetrics.map((metric) => (
         <TableRow
           key={metric.id}
           hover
@@ -93,9 +116,11 @@ export function MetricCategorySection({
             const data = getItemData(item);
             const value = data ? calculateMetric(metric, data) : null;
             const formatted = formatMetricValue(value, metric.format);
+            // For custom metrics, show N/A instead of - when value is null
+            const displayValue = isCustom && formatted === null ? 'N/A' : (formatted ?? '-');
             return (
               <TableCell key={item.id} align="right">
-                {formatted}
+                {displayValue}
               </TableCell>
             );
           })}

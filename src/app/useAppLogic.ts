@@ -78,7 +78,7 @@ export const useAppLogic = () => {
 
   const fetchCompanyData = async (
     ticker: string,
-    providerConfig: DataProviderConfig,
+    providerConfig: DataProviderConfig | DataProviderConfig[],
     showError = true
   ) => {
     setCompanies((prev) =>
@@ -86,15 +86,37 @@ export const useAppLogic = () => {
     );
 
     try {
-      const adapter = getAdapter(providerConfig.provider);
-      if (!adapter) {
-        throw new Error('Invalid data provider');
+      let data: RawFinancialData;
+
+      // Check if multiple providers are specified
+      if (Array.isArray(providerConfig)) {
+        // Multi-API fetch
+        const { fetchFromMultipleApis } = await import('../adapters/multiApiFetcher');
+        data = await fetchFromMultipleApis(
+          ticker,
+          providerConfig.map(c => ({ provider: c.provider, apiKey: c.apiKey })),
+          'merge'
+        );
+      } else {
+        // Single API fetch
+        const adapter = getAdapter(providerConfig.provider);
+        if (!adapter) {
+          throw new Error('Invalid data provider');
+        }
+        data = await adapter.fetchCompanyData(ticker, providerConfig.apiKey);
       }
-      const data = await adapter.fetchCompanyData(ticker, providerConfig.apiKey);
 
       setCompanies((prev) =>
         prev.map((c) =>
-          c.ticker === ticker ? { ...c, rawData: data, isLoading: false, error: null } : c
+          c.ticker === ticker 
+            ? { 
+                ...c, 
+                rawData: data, 
+                isLoading: false, 
+                error: null,
+                lastUpdated: Date.now(),
+              } 
+            : c
         )
       );
     } catch (error) {
@@ -152,23 +174,47 @@ export const useAppLogic = () => {
     });
   };
 
-  const handleSaveConfig = (newConfig: DataProviderConfig) => {
-    setConfig(newConfig);
-    storageService.saveProviderConfig(newConfig);
+  const handleSaveConfig = (newConfig: DataProviderConfig | DataProviderConfig[]) => {
+    // Store as single config if array has one item, otherwise store first as primary
+    const primaryConfig = Array.isArray(newConfig) ? newConfig[0] : newConfig;
+    setConfig(primaryConfig);
+    storageService.saveProviderConfig(primaryConfig);
 
+    // Refresh all companies with new config
     companies.forEach((company) => {
-      if (!company.rawData && !company.isLoading) {
+      if (!company.isLoading) {
         fetchCompanyData(company.ticker, newConfig);
       }
     });
 
-    setSnackbar({ open: true, message: 'Settings saved successfully', severity: 'success' });
+    setSnackbar({ 
+      open: true, 
+      message: Array.isArray(newConfig) 
+        ? `Settings saved: ${newConfig.length} API provider(s) configured`
+        : 'Settings saved successfully', 
+      severity: 'success' 
+    });
   };
 
   const handleAddCustomMetric = (metric: CustomMetric) => {
     setCustomMetrics((prev) => [...prev, metric]);
     storageService.addCustomMetric(metric);
     setSnackbar({ open: true, message: 'Custom metric created', severity: 'success' });
+  };
+
+  const handleImportCustomMetrics = (metrics: CustomMetric[]) => {
+    setCustomMetrics((prev) => {
+      const existingIds = new Set(prev.map(m => m.id));
+      const newMetrics = metrics.filter(m => !existingIds.has(m.id));
+      const updated = [...prev, ...newMetrics];
+      storageService.saveCustomMetrics(updated);
+      return updated;
+    });
+    setSnackbar({ 
+      open: true, 
+      message: `Imported ${metrics.length} custom metric(s)`, 
+      severity: 'success' 
+    });
   };
 
   const handleDeleteCustomMetric = (metricId: string) => {
@@ -317,6 +363,7 @@ export const useAppLogic = () => {
     handleRemoveCompany,
     handleSaveConfig,
     handleAddCustomMetric,
+    handleImportCustomMetrics,
     handleDeleteCustomMetric,
     handleCreateGroup,
     handleRemoveGroup,

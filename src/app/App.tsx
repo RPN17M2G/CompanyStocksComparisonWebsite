@@ -5,7 +5,8 @@ import { AppLayout } from './AppLayout';
 import { MainContent } from './MainContent';
 import { AppModals } from './AppModals';
 import { DetailView } from '../views/detail/DetailView';
-import { useResizablePanel } from '../shared/hooks/useResizablePanel'; 
+import { useResizablePanel } from '../shared/hooks/useResizablePanel';
+import { RawFinancialData } from '../shared/types/types'; 
 
 const INIT_WIDTH = 35; // Initial width percentage of the detail view panel
 const MIN_WIDTH = 15;  // Minimum width percentage of the detail view panel
@@ -96,6 +97,7 @@ function App() {
         <MainContent
           hasConfig={logic.hasConfig}
           allItems={logic.allItems}
+          itemsData={logic.groupData}
           selectedItems={logic.selectedItems}
           selectedCompaniesCount={logic.selectedCompanies.length}
           detailItemId={logic.detailItemId}
@@ -127,7 +129,9 @@ function App() {
         customMetrics={logic.customMetrics}
         onCloseCustomMetrics={logic.closeCustomMetrics}
         onAddMetric={logic.handleAddCustomMetric}
+        onImportMetrics={logic.handleImportCustomMetrics}
         onDeleteMetric={logic.handleDeleteCustomMetric}
+        availableData={Array.from(logic.groupData.values()).filter(Boolean) as RawFinancialData[]}
         // Create Group
         showCreateGroup={logic.showCreateGroup}
         selectedCompanies={logic.selectedCompanies}

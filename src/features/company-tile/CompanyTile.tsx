@@ -1,9 +1,9 @@
 import { Company, ComparisonGroup, CustomMetric } from '../../shared/types/types';
 import { CompanyTileLoading } from './CompanyTileLoading';
 import { CompanyTileError } from './CompanyTileError';
+import { CompanyTileEmpty } from './CompanyTileEmpty';
 import { CompanyTileContent } from './CompanyTileContent'; 
 import { SxProps, Theme } from '@mui/material';
-import React from 'react';
 
 export const cardSx: SxProps<Theme> = {
   height: '100%',
@@ -79,9 +79,21 @@ export function CompanyTile({
   }
   
   const data = !isGroup ? company.rawData : null;
-  if (!isGroup && !data) return null;
+  
+  // --- State 3: Empty/No Data ---
+  if (!isGroup && !data && !company.isLoading && !company.error) {
+    return (
+      <CompanyTileEmpty
+        ticker={company.ticker}
+        name={company.ticker} // Will show ticker if name not available
+        cardSx={combinedCardSx}
+        onRemove={props.onRemove}
+        onShowDetails={props.onShowDetails}
+      />
+    );
+  }
 
-  // --- State 3: Success/Content ---
+  // --- State 4: Success/Content ---
   return (
     <CompanyTileContent
       item={item}

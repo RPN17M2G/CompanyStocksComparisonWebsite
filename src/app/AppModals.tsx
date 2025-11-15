@@ -21,14 +21,16 @@ type AppModalsProps = {
   showSettings: boolean;
   config: DataProviderConfig | null;
   onCloseSettings: () => void;
-  onSaveConfig: (config: DataProviderConfig) => void;
+  onSaveConfig: (config: DataProviderConfig | DataProviderConfig[]) => void;
 
   // Custom Metrics Dialog
   showCustomMetrics: boolean;
   customMetrics: CustomMetric[];
   onCloseCustomMetrics: () => void;
   onAddMetric: (metric: CustomMetric) => void;
+  onImportMetrics?: (metrics: CustomMetric[]) => void;
   onDeleteMetric: (id: string) => void;
+  availableData?: RawFinancialData[];
 
   // Create Group Dialog
   showCreateGroup: boolean;
@@ -57,7 +59,9 @@ export const AppModals = ({
   customMetrics,
   onCloseCustomMetrics,
   onAddMetric,
+  onImportMetrics,
   onDeleteMetric,
+  availableData,
   showCreateGroup,
   selectedCompanies,
   onCloseCreateGroup,
@@ -89,7 +93,9 @@ export const AppModals = ({
         customMetrics={customMetrics}
         onClose={onCloseCustomMetrics}
         onAddMetric={onAddMetric}
+        onImportMetrics={onImportMetrics}
         onDeleteMetric={onDeleteMetric}
+        availableData={availableData}
       />
 
       <CreateGroupDialog

@@ -8,11 +8,11 @@ import {
   List,
   ListItemText,
   ListItemSecondaryAction,
-  Theme, // <-- Import Theme
+  Theme,
   SxProps,
 } from '@mui/material';
-import { Trash2, Plus } from 'lucide-react';
-import { CustomMetric } from '../../shared/types/types';
+import { Trash2, Plus, Download, Upload } from 'lucide-react';
+import { CustomMetric, RawFinancialData } from '../../shared/types/types';
 import { GlassDialog } from '../../shared/ui/GlassDialog';
 import { MetricCreatorForm } from './MetricCreatorForm'; 
 
@@ -34,6 +34,8 @@ interface CustomMetricEditorProps {
   onClose: () => void;
   onAddMetric: (metric: CustomMetric) => void;
   onDeleteMetric: (metricId: string) => void;
+  onImportMetrics?: (metrics: CustomMetric[]) => void;
+  availableData?: RawFinancialData[]; // For dynamic field discovery
 }
 
 export function CustomMetricEditor({
@@ -42,6 +44,8 @@ export function CustomMetricEditor({
   onClose,
   onAddMetric,
   onDeleteMetric,
+  onImportMetrics,
+  availableData = [],
 }: CustomMetricEditorProps) {
   const [showCreator, setShowCreator] = useState(false);
 
@@ -55,6 +59,62 @@ export function CustomMetricEditor({
     onClose();
   }, [onClose]);
 
+  const handleExport = useCallback(() => {
+    const dataStr = JSON.stringify(customMetrics, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `custom-metrics-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [customMetrics]);
+
+  const handleImport = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const content = event.target?.result as string;
+          const imported = JSON.parse(content) as CustomMetric[];
+          
+          // Validate imported metrics
+          if (!Array.isArray(imported)) {
+            throw new Error('Invalid file format');
+          }
+
+          const validMetrics = imported.filter(m => 
+            m.id && m.name && m.format && m.formula
+          );
+
+          if (validMetrics.length === 0) {
+            throw new Error('No valid metrics found in file');
+          }
+
+          if (onImportMetrics) {
+            onImportMetrics(validMetrics);
+          } else {
+            // Fallback: add each metric individually
+            validMetrics.forEach(metric => onAddMetric(metric));
+          }
+        } catch (error) {
+          console.error('Error importing metrics:', error);
+          alert('Failed to import metrics. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [onImportMetrics, onAddMetric]);
+
   return (
     <GlassDialog
       open={open}
@@ -63,9 +123,30 @@ export function CustomMetricEditor({
       maxWidth="md"
       fullWidth
       actions={
-        <Button onClick={handleClose} variant="outlined" sx={{ borderRadius: 2 }}>
-          Close
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              onClick={handleExport}
+              variant="outlined"
+              startIcon={<Download size={18} />}
+              sx={{ borderRadius: 2 }}
+              disabled={customMetrics.length === 0}
+            >
+              Export
+            </Button>
+            <Button
+              onClick={handleImport}
+              variant="outlined"
+              startIcon={<Upload size={18} />}
+              sx={{ borderRadius: 2 }}
+            >
+              Import
+            </Button>
+          </Box>
+          <Button onClick={handleClose} variant="outlined" sx={{ borderRadius: 2 }}>
+            Close
+          </Button>
+        </Box>
       }
     >
       {customMetrics.length > 0 && (
@@ -135,6 +216,7 @@ export function CustomMetricEditor({
           <MetricCreatorForm
             onAddMetric={handleAddAndClose}
             onCancel={() => setShowCreator(false)}
+            availableData={availableData}
           />
         </Box>
       )}
