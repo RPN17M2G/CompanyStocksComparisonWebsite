@@ -1,8 +1,10 @@
-import { Box, Typography, IconButton, Chip, Paper, } from '@mui/material';
-import { X } from 'lucide-react';
+import { Box, Typography, IconButton, Chip, Paper, Collapse, } from '@mui/material';
+import { X, ChevronDown, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Company, ComparisonGroup, CustomMetric, RawFinancialData } from '../../shared/types/types';
-import { coreMetrics } from '../../engine/coreMetrics';
-import { calculateCoreMetric, calculateCustomMetric, formatMetricValue } from '../../engine/metricCalculator';
+import { calculateCustomMetric, formatMetricValue, calculateDynamicMetric } from '../../engine/metricCalculator';
+import { generateDynamicMetrics } from '../../engine/dynamicMetrics';
+import { groupMetricsWithSubcategories } from '../../engine/metricGrouping';
 import { scrollbarStyles } from '../../app/theme/theme';
 
 interface DetailViewProps {
@@ -15,6 +17,7 @@ interface DetailViewProps {
 export function DetailView({ item, data, customMetrics, onClose }: DetailViewProps) {
   const isGroup = 'isGroup' in item;
   const group = item as ComparisonGroup;
+  const company = !isGroup ? (item as Company) : null;
 
   let title = '...';
   let subtitle = '...';
@@ -22,16 +25,36 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
     title = group.name;
     subtitle = `Group (${group.companyIds.length} companies)`;
   } else if (data && data != undefined) {
-    title = data.name;
-    subtitle = data.ticker;
+    title = data.name || company?.ticker || 'Unknown';
+    subtitle = data.ticker || company?.ticker || 'Unknown';
+  } else if (company) {
+    title = company.ticker;
+    subtitle = 'No data available';
   }
 
-  // Group metrics by category
-  const groupedMetrics = coreMetrics.reduce((acc, metric) => {
-    if (!acc[metric.category]) acc[metric.category] = [];
-    acc[metric.category].push(metric);
-    return acc;
-  }, {} as Record<string, typeof coreMetrics>);
+  const dynamicMetrics = useMemo(() => {
+    if (!data) return [];
+    return generateDynamicMetrics(data);
+  }, [data]);
+
+  const groupedMetrics = useMemo(() => {
+    return groupMetricsWithSubcategories(dynamicMetrics);
+  }, [dynamicMetrics]);
+
+  const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
+  
+  const toggleSubcategory = (category: string, subcategory: string) => {
+    const key = `${category}_${subcategory}`;
+    setExpandedSubcategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
 
   const metricRowSx = {
@@ -49,7 +72,6 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
     <Paper
       sx={{
         borderRadius: 4,
-        // Glassmorphism effect
         backgroundColor: (theme: any) => 
           theme.palette.mode === 'dark' ? 'rgba(18, 30, 54, 0.7)' : 'rgba(255, 255, 255, 0.7)',
         backdropFilter: 'blur(10px)',
@@ -72,7 +94,6 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
           top: 0,
           zIndex: 10,
           p: 2,
-          // Glassy background
           backgroundColor: (theme: any) => 
             theme.palette.mode === 'dark' ? 'rgba(11, 17, 32, 0.8)' : 'rgba(248, 250, 252, 0.8)',
           backdropFilter: 'blur(10px)',
@@ -97,7 +118,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
           <X size={20} />
         </IconButton>
         
-        <Box sx={{ pr: 5 }}> {/* Padding to avoid close button */}
+        <Box sx={{ pr: 5 }}> {/* Padding to avoid overlap with close button */}
           <Typography variant="h5" component="div" fontWeight="600">
             {title}
           </Typography>
@@ -112,27 +133,119 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
 
       {/* --- Scrolling Content Area --- */}
       <Box sx={{ p: 3 }}>
-        {Object.entries(groupedMetrics).map(([category, metrics]) => (
-          <Box key={category} sx={{ mb: 3 }}>
-            <Typography variant="h6" color="primary.light" mb={1} fontWeight="500">
-              {category}
+        {!data || Object.keys(data).length <= 2 ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Data Available
             </Typography>
-            <Box display="flex" flexDirection="column" gap={0.5}>
-              {metrics.map(metric => {
-                const value = data ? calculateCoreMetric(metric.id, data) : null;
+            <Typography variant="body2" color="text.secondary">
+              {isGroup ? 'Group data will be calculated from member companies' : 'Unable to fetch data for this company'}
+            </Typography>
+          </Box>
+        ) : (
+          groupedMetrics.map((group) => {
+          const availableDirectMetrics = group.directMetrics.filter(metric => {
+            if (!data) return false;
+            const value = calculateDynamicMetric(metric, data);
+            const formatted = formatMetricValue(value, metric.format);
+            return formatted !== null;
+          });
+
+          const availableSubcategories = Object.entries(group.subcategories)
+            .map(([subcategory, metrics]) => {
+              const available = metrics.filter(metric => {
+                if (!data) return false;
+                const isAnnual = subcategory.includes('Annual');
+                const originalId = isAnnual
+                  ? `annual_${metric.id}` 
+                  : `quarterly_${metric.id}`;
+                const value = data[originalId] ?? calculateDynamicMetric(metric, data);
                 const formatted = formatMetricValue(value, metric.format);
+                return formatted !== null;
+              });
+              return { subcategory, metrics: available };
+            })
+            .filter(({ metrics }) => metrics.length > 0);
+
+          if (availableDirectMetrics.length === 0 && availableSubcategories.length === 0) {
+            return null;
+          }
+
+          return (
+            <Box key={group.category} sx={{ mb: 3 }}>
+              <Typography variant="h6" color="primary.light" mb={1} fontWeight="500">
+                {group.category}
+              </Typography>
+              
+              {availableDirectMetrics.length > 0 && (
+                <Box display="flex" flexDirection="column" gap={0.5} sx={{ mb: availableSubcategories.length > 0 ? 2 : 0 }}>
+                  {availableDirectMetrics.map(metric => {
+                    const value = calculateDynamicMetric(metric, data!);
+                    const formatted = formatMetricValue(value, metric.format);
+                    return (
+                      <Box key={metric.id} sx={metricRowSx}>
+                        <Typography variant="body2">{metric.name}</Typography>
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatted}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {availableSubcategories.map(({ subcategory, metrics }) => {
+                const key = `${group.category}_${subcategory}`;
+                const isExpanded = expandedSubcategories.has(key);
+                
                 return (
-                  <Box key={metric.id} sx={metricRowSx}>
-                    <Typography variant="body2">{metric.name}</Typography>
-                    <Typography variant="body2" fontWeight="medium">
-                      {formatted}
-                    </Typography>
+                  <Box key={subcategory} sx={{ mb: 1 }}>
+                    <Box
+                      onClick={() => toggleSubcategory(group.category, subcategory)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        cursor: 'pointer',
+                        p: 1,
+                        borderRadius: 1,
+                        '&:hover': { bgcolor: 'action.hover' },
+                        mb: 0.5,
+                      }}
+                    >
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      <Typography variant="subtitle2" fontWeight="600" color="primary.main">
+                        {subcategory}
+                      </Typography>
+                      <Chip label={metrics.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                    </Box>
+                    <Collapse in={isExpanded}>
+                      <Box display="flex" flexDirection="column" gap={0.5} sx={{ pl: 3 }}>
+                        {metrics.map(metric => {
+                          // Use original ID with prefix for lookup
+                          const isAnnual = subcategory.includes('Annual');
+                          const originalId = isAnnual
+                            ? `annual_${metric.id}` 
+                            : `quarterly_${metric.id}`;
+                          const value = data![originalId] ?? calculateDynamicMetric(metric, data!);
+                          const formatted = formatMetricValue(value, metric.format);
+                          return (
+                            <Box key={metric.id} sx={metricRowSx}>
+                              <Typography variant="body2">{metric.name}</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {formatted}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                    </Collapse>
                   </Box>
                 );
               })}
             </Box>
-          </Box>
-        ))}
+          );
+        }))}
 
         {customMetrics.length > 0 && (
           <Box sx={{ mb: 3 }}>
@@ -147,7 +260,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
                   <Box key={metric.id} sx={metricRowSx}>
                     <Typography variant="body2">{metric.name}</Typography>
                     <Typography variant="body2" fontWeight="medium">
-                      {formatted}
+                      {formatted ?? 'N/A'}
                     </Typography>
                   </Box>
                 );

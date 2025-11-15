@@ -1,4 +1,4 @@
-import { CoreMetric, RawFinancialData } from '../shared/types/types';
+import { CoreMetric } from '../shared/types/types';
 
 export const coreMetrics: CoreMetric[] = [
   // --- Basic Information ---
@@ -21,14 +21,14 @@ export const coreMetrics: CoreMetric[] = [
     name: 'Industry',
     category: 'Basic Information',
     format: 'text',
-    calculate: (data) => data.industry || 'N/A',
+    calculate: (data) => data.industry ?? null,
   },
   {
     id: 'sector',
     name: 'Sector',
     category: 'Basic Information',
     format: 'text',
-    calculate: (data) => data.sector || 'N/A',
+    calculate: (data) => data.sector ?? null,
   },
   {
     id: 'marketCap',

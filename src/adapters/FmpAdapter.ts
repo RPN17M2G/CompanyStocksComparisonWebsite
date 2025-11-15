@@ -1,63 +1,47 @@
 import { BaseDataAdapter } from './BaseAdapter';
 import { RawFinancialData } from '../shared/types/types';
+import { mergeApiResponses } from './dataTransformer';
 
 export class FmpAdapter extends BaseDataAdapter {
   name = 'Financial Modeling Prep';
 
   async fetchCompanyData(ticker: string, apiKey: string): Promise<RawFinancialData> {
     try {
-      const url = `https://financialmodelingprep.com/stable/quote?symbol=${ticker}&apikey=${apiKey}`;
-      const response = await fetch(url);
+      // Fetch quote, key metrics, and financial growth in parallel to get all available data
+      const [quoteResponse, keyMetricsResponse, financialGrowthResponse] = await Promise.all([
+        fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=${apiKey}`),
+        fetch(`https://financialmodelingprep.com/api/v3/key-metrics-ttm/${ticker}?apikey=${apiKey}`),
+        fetch(`https://financialmodelingprep.com/api/v3/financial-growth/${ticker}?apikey=${apiKey}`),
+      ]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!quoteResponse.ok) {
+        throw new Error(`HTTP error! status: ${quoteResponse.status}`);
       }
 
-      const data = await response.json();
+      const quoteData = await quoteResponse.json();
+      const keyMetricsData = keyMetricsResponse.ok ? await keyMetricsResponse.json() : null;
+      const financialGrowthData = financialGrowthResponse.ok ? await financialGrowthResponse.json() : null;
 
       // FMP returns an array, even for a single ticker
-      if (!data || data.length === 0) {
+      if (!quoteData || quoteData.length === 0) {
         throw new Error('No data found for ticker.');
       }
       
-      const profile = data[0];
+      const profile = quoteData[0];
 
       // FMP returns error messages inside a 200 OK response sometimes
       if (profile['Error Message']) {
         throw new Error(profile['Error Message']);
       }
 
-      return this.transformData(profile);
+      // Automatically merge all responses - completely generic, captures ALL fields
+      return mergeApiResponses([
+        { data: profile, excludeFields: ['Error Message'] },
+        { data: keyMetricsData?.[0], prefix: 'keyMetrics' },
+        { data: financialGrowthData?.[0], prefix: 'growth' },
+      ]);
     } catch (error) {
       return this.handleError(error, ticker);
     }
-  }
-
-  private transformData(data: any): RawFinancialData {
-    const parseNumber = (value: number | string | undefined | null): number | undefined => {
-      if (value === null || value === undefined || value === "") return undefined;
-      const num = parseFloat(String(value));
-      return isNaN(num) ? undefined : num;
-    };
-
-    return {
-      ticker: data.symbol,
-      name: data.companyName,
-      industry: data.industry,
-      sector: data.sector,
-      marketCap: parseNumber(data.mktCap),
-      price: parseNumber(data.price),
-      revenueTTM: parseNumber(data.revenue), // Check FMP docs; 'revenue' on profile is often TTM
-      netIncome: parseNumber(data.netIncome),
-      eps: parseNumber(data.eps),
-      peRatio: parseNumber(data.pe),
-      pbRatio: parseNumber(data.pb),
-      bookValue: parseNumber(data.bookValue),
-      totalAssets: parseNumber(data.assets),
-      totalDebt: parseNumber(data.debt),
-      ebitda: parseNumber(data.ebitda),
-      dividendYield: parseNumber(data.dividend), // FMP 'dividend' is often yield
-      payoutRatio: parseNumber(data.payout),
-    };
   }
 }

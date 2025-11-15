@@ -1,65 +1,57 @@
 import { BaseDataAdapter } from './BaseAdapter';
 import { RawFinancialData } from '../shared/types/types';
+import { mergeApiResponses } from './dataTransformer';
 
 export class AlphaVantageAdapter extends BaseDataAdapter {
   name = 'Alpha Vantage';
 
   async fetchCompanyData(ticker: string, apiKey: string): Promise<RawFinancialData> {
     try {
-      const overviewUrl = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`;
-      const response = await fetch(overviewUrl);
+      const [overviewResponse, incomeStatementResponse] = await Promise.all([
+        fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${apiKey}`),
+        fetch(`https://www.alphavantage.co/query?function=INCOME_STATEMENT&symbol=${ticker}&apikey=${apiKey}`),
+      ]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!overviewResponse.ok) {
+        throw new Error(`HTTP error! status: ${overviewResponse.status}`);
       }
 
-      const data = await response.json();
+      const overviewData = await overviewResponse.json();
+      const incomeStatementData = incomeStatementResponse.ok 
+        ? await incomeStatementResponse.json() 
+        : null;
 
-      if (data.Note || data['Error Message']) {
-        throw new Error(data.Note || data['Error Message'] || 'API limit reached or invalid ticker');
+      if (overviewData.Note || overviewData['Error Message']) {
+        throw new Error(overviewData.Note || overviewData['Error Message'] || 'API limit reached or invalid ticker');
       }
 
-      return this.transformData(ticker, data);
+      const incomeStatements: any[] = [];
+      if (incomeStatementData) {
+        if (incomeStatementData.annualReports && Array.isArray(incomeStatementData.annualReports)) {
+          incomeStatementData.annualReports.forEach((report: any, index: number) => {
+            incomeStatements.push({
+              data: report,
+              prefix: index === 0 ? 'annual' : `annual_${index}`,
+            });
+          });
+        }
+        
+        if (incomeStatementData.quarterlyReports && Array.isArray(incomeStatementData.quarterlyReports)) {
+          incomeStatementData.quarterlyReports.forEach((report: any, index: number) => {
+            incomeStatements.push({
+              data: report,
+              prefix: index === 0 ? 'quarterly' : `quarterly_${index}`,
+            });
+          });
+        }
+      }
+
+      return mergeApiResponses([
+        { data: overviewData, excludeFields: ['Note', 'Error Message', 'Symbol'] },
+        ...incomeStatements,
+      ]);
     } catch (error) {
       return this.handleError(error, ticker);
     }
-  }
-
-  private transformData(ticker: string, data: any): RawFinancialData {
-    const parseNumber = (value: string | undefined): number | undefined => {
-      if (!value || value === 'None' || value === '-') return undefined;
-      const num = parseFloat(value);
-      return isNaN(num) ? undefined : num;
-    };
-
-    return {
-      ticker,
-      name: data.Name || ticker,
-      industry: data.Industry,
-      sector: data.Sector,
-      marketCap: parseNumber(data.MarketCapitalization),
-      price: parseNumber(data['50DayMovingAverage']),
-      revenueTTM: parseNumber(data.RevenueTTM),
-      netIncome: parseNumber(data.NetIncome),
-      eps: parseNumber(data.EPS),
-      epsGrowthYoY: parseNumber(data.QuarterlyEarningsGrowthYOY),
-      peRatio: parseNumber(data.PERatio),
-      pbRatio: parseNumber(data.PriceToBookRatio),
-      psRatio: parseNumber(data.PriceToSalesRatioTTM),
-      pegRatio: parseNumber(data.PEGRatio),
-      grossMargin: parseNumber(data.GrossProfitTTM) && parseNumber(data.RevenueTTM)
-        ? (parseNumber(data.GrossProfitTTM)! / parseNumber(data.RevenueTTM)!) * 100
-        : undefined,
-      operatingMargin: parseNumber(data.OperatingMarginTTM),
-      netMargin: parseNumber(data.ProfitMargin),
-      roe: parseNumber(data.ReturnOnEquityTTM),
-      roa: parseNumber(data.ReturnOnAssetsTTM),
-      debtToEquity: parseNumber(data.DebtToEquity),
-      dividendYield: parseNumber(data.DividendYield),
-      payoutRatio: parseNumber(data.PayoutRatio),
-      ebitda: parseNumber(data.EBITDA),
-      bookValue: parseNumber(data.BookValue),
-      totalAssets: parseNumber(data.TotalAssets),
-    };
   }
 }

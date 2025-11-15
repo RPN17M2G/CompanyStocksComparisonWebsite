@@ -13,8 +13,10 @@ import { Company, ComparisonGroup, CustomMetric } from '../../shared/types/types
 import { coreMetrics } from '../../engine/coreMetrics';
 import {
   calculateCoreMetric,
+  calculateDynamicMetric,
   formatMetricValue,
 } from '../../engine/metricCalculator';
+import { generateDynamicMetrics } from '../../engine/dynamicMetrics';
 import { TileRemoveButton } from '../../shared/ui/TileRemoveButton';
 import React, { useMemo, useCallback } from 'react';
 
@@ -74,7 +76,7 @@ const TileSelectCheckbox = React.memo(
 export function CompanyTileContent({
   item,
   keyMetrics,
-  customMetrics,
+  customMetrics: _customMetrics, // Reserved for future use
   isSelected,
   onShowDetails,
   onToggleSelect,
@@ -105,18 +107,40 @@ export function CompanyTileContent({
   const metricsToShow = useMemo(() => {
     if (isGroup || !data) return [];
 
+    // Generate dynamic metrics from data
+    const dynamicMetrics = generateDynamicMetrics(data);
+
     return keyMetrics
       .map(metricId => {
-        const metric = coreMetrics.find(m => m.id === metricId);
-        if (!metric) return null;
+        // Try to find in legacy coreMetrics first
+        const legacyMetric = coreMetrics.find(m => m.id === metricId);
+        let value: string | number | null;
+        let format: string;
+        let name: string;
 
-        const value = calculateCoreMetric(metric.id, data);
-        const formatted = formatMetricValue(value, metric.format);
+        if (legacyMetric) {
+          // Legacy metric with calculate function
+          value = calculateCoreMetric(legacyMetric.id, data);
+          format = legacyMetric.format;
+          name = legacyMetric.name;
+        } else {
+          // Try dynamic metric
+          const dynamicMetric = dynamicMetrics.find(m => m.id === metricId);
+          if (!dynamicMetric) return null;
+          
+          value = calculateDynamicMetric(dynamicMetric, data);
+          format = dynamicMetric.format;
+          name = dynamicMetric.name;
+        }
 
-        return { id: metric.id, name: metric.name, formattedValue: formatted };
+        const formatted = formatMetricValue(value, format);
+
+        // Always include metrics, show N/A if no data
+        return { id: metricId, name, formattedValue: formatted ?? 'N/A' };
       })
       .filter(
-        (m): m is { id: string; name: string; formattedValue: string } => !!m
+        (m): m is { id: string; name: string; formattedValue: string } => 
+          m !== null
       );
   }, [keyMetrics, data, isGroup]);
 
@@ -159,6 +183,19 @@ export function CompanyTileContent({
               >
                 {subtitle}
               </Typography>
+              {!isGroup && company.lastUpdated && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    mt: 0.5,
+                    fontSize: '0.7rem',
+                    opacity: 0.7,
+                  }}
+                >
+                  Updated: {new Date(company.lastUpdated).toLocaleString()}
+                </Typography>
+              )}
             </Box>
             {isGroup && (
               <Chip

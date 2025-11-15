@@ -1,10 +1,27 @@
-import { RawFinancialData, CustomMetric, ComparisonGroup, Company, CoreMetric } from '../shared/types/types';
+import { RawFinancialData, CustomMetric, ComparisonGroup, Company, CoreMetric, DynamicMetric } from '../shared/types/types';
 import { coreMetrics } from './coreMetrics';
+import { getAllAvailableMetrics } from './dynamicMetrics';
 
 export function calculateCoreMetric(metricId: string, data: RawFinancialData): string | number | null {
-  const metric = coreMetrics.find(m => m.id === metricId);
-  if (!metric) return null;
-  return metric.calculate(data);
+  const legacyMetric = coreMetrics.find(m => m.id === metricId);
+  if (legacyMetric) {
+    return legacyMetric.calculate(data);
+  }
+  
+  const value = data[metricId];
+  if (value === undefined || value === null) {
+    return null;
+  }
+  
+  return value;
+}
+
+export function calculateDynamicMetric(metric: DynamicMetric, data: RawFinancialData): string | number | null {
+  const value = data[metric.id];
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return value;
 }
 
 export function calculateCustomMetric(
@@ -47,7 +64,12 @@ export function aggregateGroupData(
   }
 
   const validData = groupCompanies.map(c => c.rawData!);
-  const marketCaps = validData.map(d => d.marketCap || 0).filter(m => m > 0);
+  const marketCaps = validData
+    .map(d => {
+      const mc = d.marketCap;
+      return typeof mc === 'number' ? mc : 0;
+    })
+    .filter(m => m > 0);
   const totalMarketCap = marketCaps.reduce((sum, mc) => sum + mc, 0);
 
   const weightedAverage = (field: keyof RawFinancialData): number | undefined => {
@@ -58,7 +80,7 @@ export function aggregateGroupData(
     validData.forEach(d => {
       const value = d[field];
       const mc = d.marketCap || 0;
-      if (typeof value === 'number' && mc > 0) {
+      if (typeof value === 'number' && typeof mc === 'number' && mc > 0) {
         weightedSum += value * mc;
         validWeights += mc;
       }
@@ -79,34 +101,73 @@ export function aggregateGroupData(
     return hasValue ? total : undefined;
   };
 
-  const aggregatedData: RawFinancialData = {
+  const aggregatedData: Partial<RawFinancialData> = {
     ticker: group.id,
     name: group.name,
     industry: `Group of ${groupCompanies.length} companies`,
   };
 
-  coreMetrics.forEach((metric: CoreMetric) => {
+  const allMetrics = getAllAvailableMetrics(validData);
+  
+  allMetrics.forEach((metric) => {
     const field = metric.id as keyof RawFinancialData;
+    let value: number | string | undefined;
 
     if (metric.aggregationMethod === 'sum') {
-      aggregatedData[field] = sum(field);
+      value = sum(field);
     } else if (metric.aggregationMethod === 'weightedAverage') {
-      aggregatedData[field] = weightedAverage(field);
+      value = weightedAverage(field);
+    } else {
+      // Default: try weighted average for ratios/percentages, sum for currency
+      if (metric.format === 'ratio' || metric.format === 'percentage') {
+        value = weightedAverage(field);
+      } else if (metric.format === 'currency') {
+        value = sum(field);
+      }
+    }
+
+    // Only add field if it has a value
+    if (value !== undefined) {
+      aggregatedData[field] = value;
+    }
+  });
+  
+  // Also aggregate legacy core metrics for backward compatibility
+  coreMetrics.forEach((metric: CoreMetric) => {
+    const field = metric.id as keyof RawFinancialData;
+    if (aggregatedData[field] !== undefined) return; // Already aggregated
+    
+    let value: number | string | undefined;
+    if (metric.aggregationMethod === 'sum') {
+      value = sum(field);
+    } else if (metric.aggregationMethod === 'weightedAverage') {
+      value = weightedAverage(field);
+    }
+
+    if (value !== undefined) {
+      aggregatedData[field] = value;
     }
   });
 
-  aggregatedData.marketCap = sum('marketCap');
-  aggregatedData.price = weightedAverage('price');
+  // Add market cap and price if they have values
+  const marketCapValue = sum('marketCap');
+  const priceValue = weightedAverage('price');
+  if (marketCapValue !== undefined) {
+    aggregatedData.marketCap = marketCapValue;
+  }
+  if (priceValue !== undefined) {
+    aggregatedData.price = priceValue;
+  }
 
-  return aggregatedData;
+  return aggregatedData as RawFinancialData;
 }
 
-export function formatMetricValue(value: string | number | null, format: string): string {
-  if (value === null || value === undefined) return 'N/A';
+export function formatMetricValue(value: string | number | null, format: string): string | null {
+  if (value === null || value === undefined) return null;
 
   if (typeof value === 'string') return value;
   
-  if (!isFinite(value)) return 'N/A';
+  if (!isFinite(value)) return null;
 
   try {
     switch (format) {
@@ -126,6 +187,6 @@ export function formatMetricValue(value: string | number | null, format: string)
     }
   } catch (error) {
     console.error("Error formatting value:", value, error);
-    return 'N/A';
+    return null;
   }
 }
