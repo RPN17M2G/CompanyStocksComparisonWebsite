@@ -1,4 +1,3 @@
-import { useState, useEffect, useCallback } from 'react';
 import {
   Button,
   FormControl,
@@ -12,15 +11,21 @@ import {
   Theme,
   IconButton,
   Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
+import { styled, keyframes } from '@mui/material/styles';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { DataProviderConfig } from '../shared/types/types';
 import { availableAdapters } from '../adapters/AdapterManager';
 import { GlassDialog } from '../shared/ui/GlassDialog';
+import { storageService } from '../services/storageService';
 
 interface ApiProvider {
   provider: string;
   apiKey: string;
+  remember: boolean;
 }
 
 interface SettingsDialogProps {
@@ -30,58 +35,127 @@ interface SettingsDialogProps {
   onSave: (config: DataProviderConfig | DataProviderConfig[]) => void;
 }
 
+const waveEffect = keyframes`
+  0% {
+    filter: drop-shadow(0 1px 3px rgba(96, 165, 250, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 2px 8px rgba(96, 165, 250, 0.8));
+  }
+  100% {
+    filter: drop-shadow(0 1px 3px rgba(96, 165, 250, 0.4));
+  }
+`;
+
+const GlassmorphicCheckbox = styled(Checkbox)(({ theme }) => ({
+  marginRight: 3, 
+  marginLeft: 7, 
+  padding: 4, 
+  transition: 'background-color 0.2s ease, color 0.2s ease',
+
+  color: theme.palette.mode === 'dark'
+    ? 'rgba(255, 255, 255, 0.5)'
+    : 'rgba(0, 0, 0, 0.5)',
+
+  '&:hover': {
+    borderRadius: '6px',
+    background: theme.palette.mode === 'dark'
+      ? 'rgba(255, 255, 255, 0.05)'
+      : 'rgba(0, 0, 0, 0.04)',
+  },
+
+  '&.Mui-checked': {
+    color: '#3B82F6', 
+    background: 'transparent',
+    border: 'none',
+    
+    '&:hover': {
+      background: theme.palette.mode === 'dark'
+        ? 'rgba(96, 165, 250, 0.1)' 
+        : 'rgba(96, 165, 250, 0.08)',
+    },
+
+    '& .MuiSvgIcon-root': {
+      animation: `${waveEffect} 2s infinite ease-in-out`,
+    }
+  },
+
+  '& .MuiSvgIcon-root': {
+    fontSize: 22, 
+    filter: 'none',
+    transition: 'filter 0.3s ease', 
+  },
+}));
+
+
 export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialogProps) {
   const [useMultiApi, setUseMultiApi] = useState(false);
   const [providers, setProviders] = useState<ApiProvider[]>([
-    { provider: config?.provider || '', apiKey: config?.apiKey || '' }
+    { provider: '', apiKey: '', remember: false }
   ]);
 
   useEffect(() => {
     if (open) {
-      if (config) {
-        setProviders([{ provider: config.provider, apiKey: config.apiKey }]);
-        setUseMultiApi(false);
+      const savedKeys = storageService.getApiKeys();
+      if (savedKeys.length > 0) {
+        setProviders(savedKeys.map(k => ({ ...k, remember: true })));
+        setUseMultiApi(savedKeys.length > 1);
+      } else if (config) {
+        const currentProviders = Array.isArray(config) ? config : [config];
+        setProviders(currentProviders.map(p => ({ ...p, remember: false })));
+        setUseMultiApi(Array.isArray(config) && config.length > 1);
       } else {
-        setProviders([{ provider: '', apiKey: '' }]);
+        setProviders([{ provider: '', apiKey: '', remember: false }]);
         setUseMultiApi(false);
       }
     }
   }, [config, open]);
 
   const handleAddProvider = useCallback(() => {
-    setProviders(prev => [...prev, { provider: '', apiKey: '' }]);
+    setProviders(prev => [...prev, { provider: '', apiKey: '', remember: false }]);
   }, []);
 
   const handleRemoveProvider = useCallback((index: number) => {
     setProviders(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  const handleProviderChange = useCallback((index: number, field: 'provider' | 'apiKey', value: string) => {
+  const handleProviderChange = useCallback((index: number, field: keyof ApiProvider, value: string | boolean) => {
     setProviders(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+  }, []);
+
+  const handleRememberAll = useCallback(() => {
+    setProviders(prev => prev.map(p => ({ ...p, remember: true })));
+  }, []);
+
+  const handleForgetAll = useCallback(() => {
+    setProviders(prev => prev.map(p => ({ ...p, remember: false })));
   }, []);
 
   const handleSave = useCallback(() => {
     const validProviders = providers.filter(p => p.provider && p.apiKey.trim());
     
     if (validProviders.length === 0) {
+      onClose();
       return;
     }
 
-    if (useMultiApi && validProviders.length > 1) {
-      // Save as array for multi-API
-      onSave(validProviders.map(p => ({ provider: p.provider, apiKey: p.apiKey.trim() })));
+    const providersToSaveInStorage = validProviders
+      .filter(p => p.remember)
+      .map(p => ({ provider: p.provider, apiKey: p.apiKey.trim() }));
+      
+    storageService.saveApiKeys(providersToSaveInStorage);
+
+    const providersForSession = validProviders.map(p => ({ provider: p.provider, apiKey: p.apiKey.trim() }));
+
+    if (useMultiApi && providersForSession.length > 1) {
+      onSave(providersForSession);
     } else {
-      // Save as single config
-      onSave({
-        provider: validProviders[0].provider,
-        apiKey: validProviders[0].apiKey.trim(),
-      });
+      onSave(providersForSession[0]);
     }
     onClose();
   }, [providers, useMultiApi, onSave, onClose]);
   
   const handleClose = useCallback(() => {
-    // Don't need to manually reset state here, the useEffect on 'open' handles it.
     onClose();
   }, [onClose]);
 
@@ -122,8 +196,7 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
           color: 'info.main',
         }}
       >
-        Configure your data provider(s) and API key(s). Multiple APIs can be merged to get comprehensive data.
-        Your API keys are stored securely in your browser's local storage.
+        Configure your data provider(s) and API key(s). Select 'Remember' to save an API key for future sessions.
       </Alert>
 
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -138,7 +211,18 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
       </Box>
 
       {providers.map((providerConfig, index) => (
-        <Box key={index} sx={{ mb: 2, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+        <Box 
+          key={index} 
+          sx={{ 
+            mb: 2, 
+            p: 2, 
+            borderRadius: 3, 
+            border: '1px solid', 
+            borderColor: 'divider',
+            background: (theme: Theme) => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(5px)',
+          }}
+        >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="subtitle2">
               API Provider {index + 1}
@@ -176,14 +260,63 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
             value={providerConfig.apiKey}
             onChange={(e) => handleProviderChange(index, 'apiKey', e.target.value)}
             placeholder="Enter your API key"
-            helperText={
-              providerConfig.provider === 'Alpha Vantage'
-                ? 'Get your free API key at alphavantage.co'
-                : 'Enter your API key for the selected provider'
+            sx={{ mb: 1 }}
+          />
+          
+          <FormControlLabel
+            control={
+              <GlassmorphicCheckbox
+                checked={providerConfig.remember}
+                onChange={(e) => handleProviderChange(index, 'remember', e.target.checked)}
+              />
             }
+            label="Remember this API Key"
+            sx={{
+              mt: 1,
+              '& .MuiTypography-root': {
+                userSelect: 'none',
+                fontSize: '0.875rem',
+              }
+            }}
           />
         </Box>
       ))}
+
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        p: 1.5,
+        mb: 2,
+        borderRadius: 3,
+        background: (theme: Theme) => theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)',
+        backdropFilter: 'blur(5px)',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}>
+        <Typography variant="body2" sx={{ flexGrow: 1, userSelect: 'none' }}>
+          Manage all keys at once
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            size="small"
+            onClick={handleRememberAll}
+            variant="outlined"
+            sx={{ borderRadius: 2, textTransform: 'none', fontSize: '0.8rem' }}
+          >
+            Remember All
+          </Button>
+          <Button
+            size="small"
+            onClick={handleForgetAll}
+            variant="outlined"
+            color="warning"
+            sx={{ borderRadius: 2, textTransform: 'none', fontSize: '0.8rem' }}
+          >
+            Forget All
+          </Button>
+        </Box>
+      </Box>
 
       {useMultiApi && (
         <Button

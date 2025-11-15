@@ -57,18 +57,18 @@ export function ComparisonView({
 }: ComparisonViewProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const {
-    exportMenuAnchor,
-    handleOpenExportMenu,
-    handleCloseExportMenu,
-    exportHandlers,
-  } = useComparisonExporter(items, itemsData, customMetrics);
-
   const allMetrics = useMemo(() => {
     const allData = Array.from(itemsData.values()).filter(Boolean) as RawFinancialData[];
     if (allData.length === 0) return [];
     return getAllAvailableMetrics(allData);
   }, [itemsData]);
+
+  const {
+    exportMenuAnchor,
+    handleOpenExportMenu,
+    handleCloseExportMenu,
+    exportHandlers,
+  } = useComparisonExporter(items, itemsData, [...allMetrics, ...customMetrics]);
 
   const groupedMetrics = useMemo(() => {
     return allMetrics.reduce((acc, metric) => {

@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   CUSTOM_METRICS: 'stock_dashboard_custom_metrics',
   COMPARISON_GROUPS: 'stock_dashboard_groups',
   KEY_METRICS: 'stock_dashboard_key_metrics',
+  API_KEYS: 'stock_dashboard_api_keys',
 };
 
 /**
@@ -39,6 +40,15 @@ function setItem<T>(key: string, value: T): void {
 }
 
 export const storageService = {
+  // --- API Keys ---
+  getApiKeys(): DataProviderConfig[] {
+    return getItem(STORAGE_KEYS.API_KEYS, []);
+  },
+
+  saveApiKeys(keys: DataProviderConfig[]): void {
+    setItem(STORAGE_KEYS.API_KEYS, keys);
+  },
+
   // --- Companies ---
   getCompanyTickers(): string[] {
     return getItem(STORAGE_KEYS.COMPANIES, []);

@@ -1,7 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { Company, ComparisonGroup, CoreMetric, CustomMetric, RawFinancialData } from '../../shared/types/types';
-import { coreMetrics } from '../../engine/coreMetrics';
+import { Company, ComparisonGroup, CoreMetric, CustomMetric, DynamicMetric, RawFinancialData } from '../../shared/types/types';
 import { calculateCoreMetric, calculateCustomMetric, formatMetricValue } from '../../engine/metricCalculator';
 
 /**
@@ -23,7 +22,7 @@ function downloadFile(content: string, fileName: string, contentType: string) {
 export function useComparisonExporter(
   items: (Company | ComparisonGroup)[],
   itemsData: Map<string, RawFinancialData>,
-  customMetrics: CustomMetric[]
+  allMetrics: (CoreMetric | CustomMetric | DynamicMetric)[]
 ) {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -36,19 +35,6 @@ export function useComparisonExporter(
   }, []);
 
   // --- Helper Functions (Memoized) ---
-  
-  const allMetrics = useMemo((): (CoreMetric | CustomMetric)[] => {
-    const groupedMetrics = coreMetrics.reduce((acc, metric) => {
-      if (!acc[metric.category]) acc[metric.category] = [];
-      acc[metric.category].push(metric);
-      return acc;
-    }, {} as Record<string, typeof coreMetrics>);
-
-    const metrics: (CoreMetric | CustomMetric)[] = [];
-    Object.values(groupedMetrics).forEach(m => metrics.push(...m));
-    metrics.push(...customMetrics);
-    return metrics;
-  }, [customMetrics]);
 
   const getItemData = useCallback((item: Company | ComparisonGroup): RawFinancialData | null => {
     return itemsData.get(item.id) || null;
