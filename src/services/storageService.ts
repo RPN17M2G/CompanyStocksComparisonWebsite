@@ -1,3 +1,4 @@
+// src/services/storageService.ts
 import { DataProviderConfig, CustomMetric, ComparisonGroup } from '../shared/types/types';
 
 const STORAGE_KEYS = {
@@ -6,31 +7,20 @@ const STORAGE_KEYS = {
   CUSTOM_METRICS: 'stock_dashboard_custom_metrics',
   COMPARISON_GROUPS: 'stock_dashboard_groups',
   KEY_METRICS: 'stock_dashboard_key_metrics',
-  API_KEYS: 'stock_dashboard_api_keys',
+  API_KEYS: 'stock_dashboard_api_keys', 
 };
 
-/**
- * Safely retrieves and parses a JSON item from localStorage.
- * @param key The localStorage key.
- * @param defaultValue A fallback value if the key doesn't exist or is invalid JSON.
- * @returns The parsed item or the default value.
- */
+// --- localStorage Helpers (for non-sensitive data) ---
 function getItem<T>(key: string, defaultValue: T): T {
   try {
     const stored = localStorage.getItem(key);
     return stored ? (JSON.parse(stored) as T) : defaultValue;
   } catch (error) {
     console.error(`Error parsing stored item ${key}:`, error);
-    // On error, return the default value to prevent app crash
     return defaultValue;
   }
 }
 
-/**
- * Safely stringifies and saves a value to localStorage.
- * @param key The localStorage key.
- * @param value The value to save.
- */
 function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
@@ -39,14 +29,33 @@ function setItem<T>(key: string, value: T): void {
   }
 }
 
+// --- sessionStorage Helpers (for sensitive data) ---
+function getItemSession<T>(key: string, defaultValue: T): T {
+  try {
+    const stored = sessionStorage.getItem(key); 
+    return stored ? (JSON.parse(stored) as T) : defaultValue;
+  } catch (error) {
+    console.error(`Error parsing stored session item ${key}:`, error);
+    return defaultValue;
+  }
+}
+
+function setItemSession<T>(key: string, value: T): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value)); 
+  } catch (error) {
+    console.error(`Error saving stored session item ${key}:`, error);
+  }
+}
+
 export const storageService = {
   // --- API Keys ---
   getApiKeys(): DataProviderConfig[] {
-    return getItem(STORAGE_KEYS.API_KEYS, []);
+    return getItemSession(STORAGE_KEYS.API_KEYS, []); 
   },
 
   saveApiKeys(keys: DataProviderConfig[]): void {
-    setItem(STORAGE_KEYS.API_KEYS, keys);
+    setItemSession(STORAGE_KEYS.API_KEYS, keys); 
   },
 
   // --- Companies ---
