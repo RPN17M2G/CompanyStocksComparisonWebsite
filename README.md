@@ -1,8 +1,12 @@
-# Stock-to-Metrics Dashboard
+# Peer Compare
 
 A modern, responsive client side only web application designed to help you analyze and compare financial metrics for publicly traded companies. Pull data from live APIs, create your own custom metrics, and build comparison groups to gain new insights.
 
 All your data (company list, API keys, custom metrics) is saved securely in your browser's local storage.
+
+
+![PeerCompareLogo](src/assets/logo-with-name.png?raw=true "PeerCompareLogo")
+
 
 ## Features
 
