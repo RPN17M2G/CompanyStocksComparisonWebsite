@@ -15,6 +15,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { Plus, Settings, TrendingUp, Edit3 } from 'lucide-react';
 import { ThemeMode } from './theme/useThemeManager';
+import logo_without_name from '../assets/logo-without-name.png';
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -49,14 +50,20 @@ export const AppLayout = ({
     <>
       <CssBaseline />
       <GlobalStyles styles={animatedBackgroundStyles} />
-
+      
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', bgcolor: 'transparent' }}>
         <AppBar position="sticky" elevation={1}>
           <Toolbar>
-            <TrendingUp size={28} style={{ marginRight: 12 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Stock-to-Metrics Dashboard
+            <img src={logo_without_name} alt="PeerCompare Logo" style={{ height: '90px' }} />
+            
+            <Typography 
+              variant="h5" 
+              component="div" 
+              sx={{ flexGrow: 1 }}
+            >
+              PeerCompare
             </Typography>
+            
             <Button color="inherit" startIcon={<Edit3 size={20} />} onClick={onShowCustomMetrics}>
               Custom Metrics
             </Button>

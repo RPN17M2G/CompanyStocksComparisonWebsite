@@ -6,6 +6,7 @@ import { CompanyTile } from '../features/company-tile/CompanyTile';
 import { CompanySortFilter } from '../features/company-controls/CompanySortFilter';
 import { calculateCoreMetric } from '../engine/metricCalculator';
 import { getAllAvailableMetrics } from '../engine/dynamicMetrics';
+import logo_with_name from '../assets/logo-with-name.png';
 
 type MainContentProps = {
   hasConfig: boolean;
@@ -180,6 +181,7 @@ export const MainContent = ({
             textAlign: 'center',
           }}
         >
+          <img src={logo_with_name} alt="PeerCompare Logo" style={{ height: '520px' }} />
           <Typography variant="h5" color="text.secondary" gutterBottom>
             No companies added yet
           </Typography>
