@@ -16,13 +16,22 @@ function downloadFile(content: string, fileName: string, contentType: string) {
   document.body.removeChild(link);
 }
 
+export interface ExportableMetric {
+  id: string;
+  name: string;
+  format: string;
+  category?: string;
+  calculateValue?: (data: RawFinancialData) => number | null;
+  formula?: string;
+}
+
 /**
  * A hook to manage all data exporting logic for the comparison table.
  */
 export function useComparisonExporter(
   items: (Company | ComparisonGroup)[],
   itemsData: Map<string, RawFinancialData>,
-  allMetrics: (CoreMetric | CustomMetric | DynamicMetric)[]
+  allMetrics: (CoreMetric | CustomMetric | DynamicMetric | ExportableMetric)[]
 ) {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -42,7 +51,7 @@ export function useComparisonExporter(
 
   const getItemName = useCallback((item: Company | ComparisonGroup) =>
     'isGroup' in item ? item.name : item.ticker,
-  []);
+    []);
 
   /**
    * Generates the structured data for exporting.
@@ -51,22 +60,24 @@ export function useComparisonExporter(
   const getFormattedData = useCallback(() => {
     return allMetrics.map(metric => {
       const row: Record<string, any> = { Metric: metric.name };
-      
+
       items.forEach(item => {
         const itemData = getItemData(item);
         const value = itemData
-          ? 'formula' in metric
-            ? calculateCustomMetric(metric, itemData)
-            : calculateCoreMetric(metric.id, itemData)
+          ? 'calculateValue' in metric && typeof (metric as any).calculateValue === 'function'
+            ? (metric as any).calculateValue(itemData)
+            : 'formula' in metric
+              ? calculateCustomMetric(metric as CustomMetric, itemData)
+              : calculateCoreMetric(metric.id, itemData)
           : null;
-        
+
         row[getItemName(item)] = formatMetricValue(value, metric.format);
       });
       return row;
     });
   }, [allMetrics, items, getItemData, getItemName]);
 
-  
+
   // --- Export Handlers ---
 
   const handleExportJSON = useCallback(() => {
@@ -105,11 +116,11 @@ export function useComparisonExporter(
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Comparison');
     XLSX.writeFile(wb, 'comparison.xlsx');
-    
+
     handleCloseExportMenu();
   }, [getFormattedData, handleCloseExportMenu]);
 
-  
+
   return {
     exportMenuAnchor,
     handleOpenExportMenu,

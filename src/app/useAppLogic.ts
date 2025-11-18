@@ -57,20 +57,39 @@ export const useAppLogic = () => {
     setGroups(savedGroups);
     setKeyMetrics(savedKeyMetrics);
 
-    const initialCompanies: Company[] = savedTickers.map((ticker) => ({
-      id: ticker,
-      ticker,
-      rawData: null,
-      isLoading: false,
-      error: null,
-    }));
+    // Load companies from cache first, then fetch if stale
+    const initialCompanies: Company[] = savedTickers.map((ticker) => {
+      const cached = storageService.getCachedCompanyData(ticker);
+      const isStale = storageService.isCacheStale(ticker);
+      
+      return {
+        id: ticker,
+        ticker,
+        rawData: cached && !isStale ? cached.data : null,
+        isLoading: false,
+        error: null,
+        lastUpdated: cached?.timestamp,
+      };
+    });
 
     setCompanies(initialCompanies);
 
     if (savedConfig) {
+      // Check if we should refresh all companies (once per day)
+      const shouldRefreshAll = storageService.shouldRefreshAll();
+      
       initialCompanies.forEach((company) => {
-        fetchCompanyData(company.ticker, savedConfig, false); 
+        const isStale = storageService.isCacheStale(company.ticker);
+        // Fetch if stale or if we're doing a daily refresh
+        if (isStale || shouldRefreshAll) {
+          fetchCompanyData(company.ticker, savedConfig, false);
+        }
       });
+
+      // Mark that we've done a refresh all
+      if (shouldRefreshAll) {
+        storageService.setLastRefreshAll();
+      }
     }
   }, []);
 
@@ -79,8 +98,33 @@ export const useAppLogic = () => {
   const fetchCompanyData = async (
     ticker: string,
     providerConfig: DataProviderConfig | DataProviderConfig[],
-    showError = true
+    showError = true,
+    forceRefresh = false
   ) => {
+    // Check cache first if not forcing refresh
+    if (!forceRefresh) {
+      const cached = storageService.getCachedCompanyData(ticker);
+      const isStale = storageService.isCacheStale(ticker);
+      
+      if (cached && !isStale) {
+        // Use cached data
+        setCompanies((prev) =>
+          prev.map((c) =>
+            c.ticker === ticker
+              ? {
+                  ...c,
+                  rawData: cached.data,
+                  isLoading: false,
+                  error: null,
+                  lastUpdated: cached.timestamp,
+                }
+              : c
+          )
+        );
+        return;
+      }
+    }
+
     setCompanies((prev) =>
       prev.map((c) => (c.ticker === ticker ? { ...c, isLoading: true, error: null } : c))
     );
@@ -106,6 +150,9 @@ export const useAppLogic = () => {
         data = await adapter.fetchCompanyData(ticker, providerConfig.apiKey);
       }
 
+      // Cache the data
+      storageService.setCachedCompanyData(ticker, data);
+
       setCompanies((prev) =>
         prev.map((c) =>
           c.ticker === ticker 
@@ -130,6 +177,18 @@ export const useAppLogic = () => {
         setSnackbar({ open: true, message: `Failed to fetch ${ticker}: ${errorMessage}`, severity: 'error' });
       }
     }
+  };
+
+  const handleRefreshCompany = (ticker: string) => {
+    if (!config) {
+      setSnackbar({
+        open: true,
+        message: 'Please configure at least one data provider in Settings',
+        severity: 'error',
+      });
+      return;
+    }
+    fetchCompanyData(ticker, config, true, true); // Force refresh
   };
 
   const handleAddCompany = (ticker: string) => {
@@ -215,6 +274,15 @@ export const useAppLogic = () => {
       message: `Imported ${metrics.length} custom metric(s)`, 
       severity: 'success' 
     });
+  };
+
+  const handleUpdateCustomMetric = (metric: CustomMetric) => {
+    setCustomMetrics((prev) => {
+      const updated = prev.map((m) => (m.id === metric.id ? metric : m));
+      storageService.saveCustomMetrics(updated);
+      return updated;
+    });
+    setSnackbar({ open: true, message: 'Custom metric updated', severity: 'success' });
   };
 
   const handleDeleteCustomMetric = (metricId: string) => {
@@ -363,12 +431,14 @@ export const useAppLogic = () => {
     handleRemoveCompany,
     handleSaveConfig,
     handleAddCustomMetric,
+    handleUpdateCustomMetric,
     handleImportCustomMetrics,
     handleDeleteCustomMetric,
     handleCreateGroup,
     handleRemoveGroup,
     toggleSelected,
     handleRemoveItemFromComparison,
+    handleRefreshCompany,
     
     // FAB Handlers
     handleFabMouseEnter,

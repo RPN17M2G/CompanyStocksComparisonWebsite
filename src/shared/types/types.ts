@@ -20,6 +20,8 @@ export interface CustomMetric {
   name: string;
   format: 'currency' | 'percentage' | 'ratio' | 'number';
   formula: string;
+  betterDirection?: 'higher' | 'lower'; // Which direction is better for numeric values
+  priority?: number; // Priority/importance of this metric (1-10, higher = more important)
 }
 
 export interface Company {

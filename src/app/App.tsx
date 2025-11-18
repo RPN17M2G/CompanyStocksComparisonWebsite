@@ -1,10 +1,12 @@
 import { ThemeProvider, Snackbar, Alert, Box } from '@mui/material';
+import { useTransition } from 'react';
 import { useThemeManager } from './theme/useThemeManager';
 import { useAppLogic } from './useAppLogic';
 import { AppLayout } from './AppLayout';
 import { MainContent } from './MainContent';
 import { AppModals } from './AppModals';
 import { DetailView } from '../views/detail/DetailView';
+import { ComparisonViewFullscreen } from '../views/comparison/ComparisonViewFullscreen';
 import { useResizablePanel } from '../shared/hooks/useResizablePanel';
 import { RawFinancialData } from '../shared/types/types'; 
 
@@ -15,6 +17,7 @@ const MAX_WIDTH = 50;  // Maximum width percentage of the detail view panel
 function App() {
   const { theme, mode, toggleTheme } = useThemeManager();
   const logic = useAppLogic();
+  const [isPending, startTransition] = useTransition();
 
   const {
     width: detailViewWidth,
@@ -26,93 +29,110 @@ function App() {
     maxWidth: MAX_WIDTH,
   });
 
+  // Optimize comparison view opening with transition
+  const shouldShowComparison = logic.showComparison && logic.comparisonItems.length > 0;
+
   return (
     <ThemeProvider theme={theme}>
-      <AppLayout
-        mode={mode}
-        hasConfig={logic.hasConfig}
-        isFabHovered={logic.isFabHovered}
-        toggleTheme={toggleTheme}
-        onShowCustomMetrics={logic.openCustomMetrics}
-        onShowSettings={logic.openSettings}
-        onShowAddDialog={logic.openAddDialog}
-        onFabMouseEnter={logic.handleFabMouseEnter}
-        onFabMouseLeave={logic.handleFabMouseLeave}
-        detailView={
-          logic.detailItem && logic.detailItemData ? (
-            // 1. This is the OUTER container AppLayout receives.
-            <Box
-              sx={{
-                height: '100%',
-                width: `${detailViewWidth}%`, 
-                display: 'flex',
-                flexShrink: 0,
-                boxSizing: 'border-box',
-              }}
-            >
-              {/* 2. The Resize Handle */}
-              <Box
-                onMouseDown={handleDetailResize}
-                sx={{
-                  width: '5px',
-                  height: '100%',
-                  cursor: 'col-resize',
-                  backgroundColor: 'divider',
-                  flexShrink: 0, 
-                  '&:hover': {
-                    backgroundColor: 'primary.main',
-                  },
-                  ...(isDetailViewResizing && {
-                    backgroundColor: 'primary.dark',
-                  }),
-                }}
-              />
-
-              {/* 3. The Content Wrapper */}
+      {/* Show full-screen comparison view when comparison is open */}
+      {shouldShowComparison ? (
+        <ComparisonViewFullscreen
+          items={logic.comparisonItems}
+          itemsData={logic.groupData}
+          customMetrics={logic.customMetrics}
+          onClose={logic.closeComparison}
+          onAddCompany={logic.handleAddCompany}
+          onRemoveItem={logic.handleRemoveItemFromComparison}
+          onToggleSelect={logic.toggleSelected}
+        />
+      ) : (
+        <AppLayout
+          mode={mode}
+          hasConfig={logic.hasConfig}
+          isFabHovered={logic.isFabHovered}
+          toggleTheme={toggleTheme}
+          onShowCustomMetrics={logic.openCustomMetrics}
+          onShowSettings={logic.openSettings}
+          onShowAddDialog={logic.openAddDialog}
+          onFabMouseEnter={logic.handleFabMouseEnter}
+          onFabMouseLeave={logic.handleFabMouseLeave}
+          detailView={
+            logic.detailItem && logic.detailItemData ? (
+              // 1. This is the OUTER container AppLayout receives.
               <Box
                 sx={{
                   height: '100%',
-                  flexGrow: 1, // Allow content to fill remaining space
-                  p: 3,
+                  width: `${detailViewWidth}%`, 
+                  display: 'flex',
+                  flexShrink: 0,
                   boxSizing: 'border-box',
-                  overflow: 'hidden',
-                  // Prevent mouse events from being "lost" on the content
-                  ...(isDetailViewResizing && {
-                    pointerEvents: 'none',
-                    userSelect: 'none',
-                  }),
                 }}
               >
-                <DetailView
-                  item={logic.detailItem}
-                  data={logic.detailItemData}
-                  customMetrics={logic.customMetrics}
-                  onClose={() => logic.setDetailItemId(null)}
+                {/* 2. The Resize Handle */}
+                <Box
+                  onMouseDown={handleDetailResize}
+                  sx={{
+                    width: '5px',
+                    height: '100%',
+                    cursor: 'col-resize',
+                    backgroundColor: 'divider',
+                    flexShrink: 0, 
+                    '&:hover': {
+                      backgroundColor: 'primary.main',
+                    },
+                    ...(isDetailViewResizing && {
+                      backgroundColor: 'primary.dark',
+                    }),
+                  }}
                 />
+
+                {/* 3. The Content Wrapper */}
+                <Box
+                  sx={{
+                    height: '100%',
+                    flexGrow: 1, // Allow content to fill remaining space
+                    p: 3,
+                    boxSizing: 'border-box',
+                    overflow: 'hidden',
+                    // Prevent mouse events from being "lost" on the content
+                    ...(isDetailViewResizing && {
+                      pointerEvents: 'none',
+                      userSelect: 'none',
+                    }),
+                  }}
+                >
+                  <DetailView
+                    item={logic.detailItem}
+                    data={logic.detailItemData}
+                    customMetrics={logic.customMetrics}
+                    onClose={() => logic.setDetailItemId(null)}
+                  />
+                </Box>
               </Box>
-            </Box>
-          ) : null
-        }
-      >
-        <MainContent
-          hasConfig={logic.hasConfig}
-          allItems={logic.allItems}
-          itemsData={logic.groupData}
-          selectedItems={logic.selectedItems}
-          selectedCompaniesCount={logic.selectedCompanies.length}
-          detailItemId={logic.detailItemId}
-          keyMetrics={logic.keyMetrics}
-          customMetrics={logic.customMetrics}
-          onShowAddDialog={logic.openAddDialog}
-          onShowCreateGroup={logic.openCreateGroup}
-          onShowComparison={logic.openComparison}
-          onDeselectAll={() => logic.setSelectedItems(new Set())}
-          onToggleSelect={logic.toggleSelected}
-          onRemoveGroup={logic.handleRemoveGroup}
-          onRemoveCompany={logic.handleRemoveCompany}
-          onShowDetails={logic.setDetailItemId}
-        />
-      </AppLayout>
+            ) : null
+          }
+        >
+          <MainContent
+            hasConfig={logic.hasConfig}
+            allItems={logic.allItems}
+            itemsData={logic.groupData}
+            selectedItems={logic.selectedItems}
+            selectedCompaniesCount={logic.selectedCompanies.length}
+            detailItemId={logic.detailItemId}
+            keyMetrics={logic.keyMetrics}
+            customMetrics={logic.customMetrics}
+            onShowAddDialog={logic.openAddDialog}
+            onShowCreateGroup={logic.openCreateGroup}
+            onShowComparison={logic.openComparison}
+            onDeselectAll={() => logic.setSelectedItems(new Set())}
+            onToggleSelect={logic.toggleSelected}
+            onRemoveGroup={logic.handleRemoveGroup}
+            onRemoveCompany={logic.handleRemoveCompany}
+            onShowDetails={logic.setDetailItemId}
+            onRefreshCompany={logic.handleRefreshCompany}
+          />
+        </AppLayout>
+      )}
 
       <AppModals
         // Add
@@ -129,6 +149,7 @@ function App() {
         customMetrics={logic.customMetrics}
         onCloseCustomMetrics={logic.closeCustomMetrics}
         onAddMetric={logic.handleAddCustomMetric}
+        onUpdateMetric={logic.handleUpdateCustomMetric}
         onImportMetrics={logic.handleImportCustomMetrics}
         onDeleteMetric={logic.handleDeleteCustomMetric}
         availableData={Array.from(logic.groupData.values()).filter(Boolean) as RawFinancialData[]}

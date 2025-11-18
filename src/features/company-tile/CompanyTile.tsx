@@ -39,6 +39,7 @@ interface CompanyTileProps {
   onShowDetails: () => void;
   onToggleSelect: () => void;
   onRemove: () => void;
+  onRefresh?: (ticker: string) => void;
 }
 
 export function CompanyTile({
@@ -74,6 +75,7 @@ export function CompanyTile({
         cardSx={combinedCardSx}
         onRemove={props.onRemove}
         onShowDetails={props.onShowDetails}
+        onRefresh={props.onRefresh}
       />
     );
   }
@@ -100,6 +102,7 @@ export function CompanyTile({
       isSelected={isSelected}
       cardSx={combinedCardSx}
       {...props}
+      onRefresh={props.onRefresh}
     />
   );
 }

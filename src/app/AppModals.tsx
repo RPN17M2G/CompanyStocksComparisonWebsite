@@ -28,6 +28,7 @@ type AppModalsProps = {
   customMetrics: CustomMetric[];
   onCloseCustomMetrics: () => void;
   onAddMetric: (metric: CustomMetric) => void;
+  onUpdateMetric?: (metric: CustomMetric) => void;
   onImportMetrics?: (metrics: CustomMetric[]) => void;
   onDeleteMetric: (id: string) => void;
   availableData?: RawFinancialData[];
@@ -59,6 +60,7 @@ export const AppModals = ({
   customMetrics,
   onCloseCustomMetrics,
   onAddMetric,
+  onUpdateMetric,
   onImportMetrics,
   onDeleteMetric,
   availableData,
@@ -93,6 +95,7 @@ export const AppModals = ({
         customMetrics={customMetrics}
         onClose={onCloseCustomMetrics}
         onAddMetric={onAddMetric}
+        onUpdateMetric={onUpdateMetric}
         onImportMetrics={onImportMetrics}
         onDeleteMetric={onDeleteMetric}
         availableData={availableData}
@@ -105,16 +108,7 @@ export const AppModals = ({
         onCreateGroup={onCreateGroup}
       />
 
-      <ComparisonView
-        open={showComparison}
-        items={comparisonItems}
-        itemsData={itemsData}
-        customMetrics={customMetrics}
-        onClose={onCloseComparison}
-        onAddCompany={onAddCompany} 
-        onRemoveItem={onRemoveItemFromComparison}
-        onToggleSelect={onToggleSelect}
-      />
+      {/* Comparison view is now full-screen and handled in App.tsx */}
     </>
   );
 };

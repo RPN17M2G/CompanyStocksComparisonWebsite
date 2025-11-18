@@ -25,6 +25,7 @@ type MainContentProps = {
   onRemoveGroup: (id: string) => void;
   onRemoveCompany: (id: string) => void;
   onShowDetails: (id: string) => void;
+  onRefreshCompany?: (ticker: string) => void;
 };
 
 export const MainContent = ({
@@ -44,6 +45,7 @@ export const MainContent = ({
   onRemoveGroup,
   onRemoveCompany,
   onShowDetails,
+  onRefreshCompany,
 }: MainContentProps) => {
   const hasSelection = selectedItems.size >= 2;
   const showDetailView = detailItemId !== null;
@@ -226,6 +228,7 @@ export const MainContent = ({
                       : () => onRemoveCompany(item.id)
                   }
                   onShowDetails={() => onShowDetails(item.id)}
+                  onRefresh={onRefreshCompany}
                 />
               </Grid>
             );
