@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { styled, keyframes } from '@mui/material/styles';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Upload } from 'lucide-react';
 import { DataProviderConfig } from '../shared/types/types';
 import { availableAdapters } from '../adapters/AdapterManager';
 import { GlassDialog } from '../shared/ui/GlassDialog';
@@ -129,6 +129,60 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
 
   const handleForgetAll = useCallback(() => {
     setProviders(prev => prev.map(p => ({ ...p, remember: false })));
+  }, []);
+
+  const handleImportFromFile = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const content = event.target?.result as string;
+          const imported = JSON.parse(content);
+          
+          // Validate format - should be array of {provider, apiKey} or single object
+          let importedProviders: DataProviderConfig[] = [];
+          
+          if (Array.isArray(imported)) {
+            importedProviders = imported.filter(
+              (p: any) => p && typeof p.provider === 'string' && typeof p.apiKey === 'string'
+            );
+          } else if (imported && typeof imported.provider === 'string' && typeof imported.apiKey === 'string') {
+            importedProviders = [imported];
+          } else {
+            alert('Invalid file format. Expected JSON array of {provider, apiKey} objects or a single {provider, apiKey} object.');
+            return;
+          }
+
+          if (importedProviders.length === 0) {
+            alert('No valid API keys found in file.');
+            return;
+          }
+
+          // Merge with existing providers (avoid duplicates)
+          setProviders(prev => {
+            const existing = new Set(prev.map(p => `${p.provider}:${p.apiKey}`));
+            const newProviders = importedProviders
+              .filter(p => !existing.has(`${p.provider}:${p.apiKey}`))
+              .map(p => ({ ...p, remember: true }));
+            return [...prev, ...newProviders];
+          });
+          
+          if (importedProviders.length > 1) {
+            setUseMultiApi(true);
+          }
+        } catch (error) {
+          alert('Error reading file: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   }, []);
 
   const handleSave = useCallback(() => {
@@ -298,6 +352,15 @@ export function SettingsDialog({ open, config, onClose, onSave }: SettingsDialog
           Manage all keys at once
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            size="small"
+            onClick={handleImportFromFile}
+            variant="outlined"
+            startIcon={<Upload size={16} />}
+            sx={{ borderRadius: 2, textTransform: 'none', fontSize: '0.8rem' }}
+          >
+            Import
+          </Button>
           <Button
             size="small"
             onClick={handleRememberAll}

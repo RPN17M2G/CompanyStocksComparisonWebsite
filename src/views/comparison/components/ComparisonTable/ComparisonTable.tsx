@@ -4,6 +4,7 @@ import React, { memo, useState, useEffect, useMemo } from 'react';
 import { GlassPaper } from '../../../../shared/ui/GlassPaper';
 import { MetricRow } from './MetricRow';
 import { MetricConfig } from '../../types';
+import { scrollbarStyles } from '../../../../app/theme/theme';
 
 interface ComparisonTableProps {
     items: any[];
@@ -111,7 +112,7 @@ export const ComparisonTable = memo(({
     return (
         <Box sx={{ pb: 4 }}>
             <GlassPaper sx={{ overflow: 'hidden' }}>
-                <TableContainer>
+                <TableContainer sx={scrollbarStyles}>
                     <Table size="small">
                         <TableHead>
                             <TableRow>

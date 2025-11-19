@@ -3,9 +3,9 @@
  * REFACTORED VERSION
  */
 
-import { Box, Menu, MenuItem, Popover } from '@mui/material';
+import { Box, Menu, MenuItem, Popover, TextField, InputAdornment, IconButton, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useState, useTransition, lazy, Suspense } from 'react';
-import { AddCompanyDialog } from '../../features/manage-companies/AddCompanyDialog';
+import { SelectCompanyDialog } from './components/SelectCompanyDialog';
 import { getAllTemplates } from '../../services/templateService';
 import { ComparisonTemplate } from '../../shared/types/comparisonTemplate';
 import { Company, ComparisonGroup, CustomMetric, RawFinancialData } from '../../shared/types/types';
@@ -14,19 +14,25 @@ import { ComparisonLayout } from './components/ComparisonLayout';
 import { ComparisonSummary } from './components/ComparisonSummary';
 import { ComparisonTable } from './components/ComparisonTable/ComparisonTable';
 import { CircularProgress } from '@mui/material';
+import { scrollbarStyles } from '../../app/theme/theme';
+import { Search, X } from 'lucide-react';
 
 // Lazy load the config dialog to prevent freezing
 const MetricConfigDialog = lazy(() => import('./components/ConfigPanel/MetricConfigDialog').then(module => ({ default: module.MetricConfigDialog })));
 import { useComparisonData } from './hooks/useComparisonData';
-import { useComparisonScores } from './hooks/useComparisonScores';
+import { useImprovedScores } from './hooks/useImprovedScores';
 import { useMetricConfig } from './hooks/useMetricConfig';
 import { useMetricDefinitions } from './hooks/useMetricDefinitions';
+import { MetricConfig } from './types';
 import { useComparisonExporter } from './useComparisonExporter';
+import { ScoringConfigPanel } from './components/ScoringConfigPanel';
+import { saveScoringConfig, loadScoringConfig } from '../../services/scoringStorage';
 
 interface ComparisonViewFullscreenProps {
   items: (Company | ComparisonGroup)[];
   itemsData: Map<string, RawFinancialData>;
   customMetrics: CustomMetric[];
+  availableCompanies: Company[];
   onClose: () => void;
   onAddCompany: (ticker: string) => void;
   onRemoveItem: (itemId: string) => void;
@@ -37,6 +43,7 @@ export function ComparisonViewFullscreen({
   items,
   itemsData,
   customMetrics,
+  availableCompanies,
   onClose,
   onAddCompany,
   onRemoveItem,
@@ -50,7 +57,10 @@ export function ComparisonViewFullscreen({
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   const [loadingTemplateName, setLoadingTemplateName] = useState<string | null>(null);
+  const [showScoringConfig, setShowScoringConfig] = useState(false);
+  const [scoringConfigVersion, setScoringConfigVersion] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [metricSearchQuery, setMetricSearchQuery] = useState('');
 
   // --- Hooks ---
   const metricDefinitions = useMetricDefinitions(itemsData, customMetrics);
@@ -65,7 +75,28 @@ export function ComparisonViewFullscreen({
 
   // Use deferred values and transitions for heavy computations
   const { allMetricValues, allValueIndicators } = useComparisonData(items, itemsData, metricDefinitions);
-  const scores = useComparisonScores(items, itemsData, visibleMetrics, metricDefinitions, customMetrics);
+  // Force refresh when scoring config changes
+  const allScores = useImprovedScores(items, itemsData, visibleMetrics, metricDefinitions, customMetrics, scoringConfigVersion) || [];
+
+  // Filter metrics based on search query
+  const filteredMetricsByCategory = useMemo(() => {
+    if (!metricSearchQuery.trim()) return metricsByCategory;
+    const query = metricSearchQuery.toLowerCase().trim();
+    const filtered: Record<string, MetricConfig[]> = {};
+    
+    Object.entries(metricsByCategory).forEach(([category, metrics]) => {
+      const matchingMetrics = metrics.filter(metric => 
+        metric.name.toLowerCase().includes(query) ||
+        metric.category.toLowerCase().includes(query) ||
+        (metric.subcategory && metric.subcategory.toLowerCase().includes(query))
+      );
+      if (matchingMetrics.length > 0) {
+        filtered[category] = matchingMetrics;
+      }
+    });
+    
+    return filtered;
+  }, [metricsByCategory, metricSearchQuery]);
 
   // Track when initial load is complete
   useEffect(() => {
@@ -197,13 +228,14 @@ export function ComparisonViewFullscreen({
         onConfigure={() => setShowConfigDialog(true)}
         onTemplates={(el) => setTemplateMenuAnchor(el)}
         onExport={(el) => handleOpenExportMenu({ currentTarget: el } as any)}
+        onShowScoringConfig={() => setShowScoringConfig(true)}
         isLoading={isLoading || isPending || isExporting || isLoadingTemplate}
       />
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: 3, ...scrollbarStyles }}>
         {/* Dashboard Section: Scores, High Priority Metrics, and Radar Chart */}
         <ComparisonSummary
-          scores={scores}
+          scores={allScores}
           items={items}
           itemsData={itemsData}
           visibleMetrics={visibleMetrics}
@@ -212,10 +244,64 @@ export function ComparisonViewFullscreen({
           allValueIndicators={allValueIndicators}
         />
 
+        {/* Search Bar for Metrics */}
+        <Box sx={{ mb: 2, mt: 4 }}>
+          <TextField
+            fullWidth
+            placeholder="Search metrics..."
+            value={metricSearchQuery}
+            onChange={(e) => setMetricSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={20} />
+                </InputAdornment>
+              ),
+              endAdornment: metricSearchQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setMetricSearchQuery('')}
+                    sx={{ mr: -1 }}
+                  >
+                    <X size={18} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 3,
+                backgroundColor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.03)',
+                '&:hover': {
+                  backgroundColor: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.05)',
+                },
+                '&.Mui-focused': {
+                  backgroundColor: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                },
+              },
+            }}
+          />
+          {metricSearchQuery && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 1 }}>
+              Showing {Object.values(filteredMetricsByCategory).reduce((sum, metrics) => sum + metrics.length, 0)} matching metrics
+            </Typography>
+          )}
+        </Box>
+
         {/* Full Comparison Table */}
         <ComparisonTable
           items={items}
-          metricsByCategory={metricsByCategory}
+          metricsByCategory={filteredMetricsByCategory}
           allMetricValues={allMetricValues}
           allValueIndicators={allValueIndicators}
           onRemoveItem={onRemoveItem}
@@ -239,11 +325,28 @@ export function ComparisonViewFullscreen({
         </Suspense>
       )}
 
-      <AddCompanyDialog
+      <SelectCompanyDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        onAdd={onAddCompany}
+        onSelect={onAddCompany}
+        availableCompanies={availableCompanies}
+        existingItemIds={new Set(items.map(item => item.id))}
       />
+
+      {showScoringConfig && (
+        <ScoringConfigPanel
+          key={Date.now()} // Force re-render when opened to refresh config
+          open={showScoringConfig}
+          onClose={() => setShowScoringConfig(false)}
+          onSave={(config) => {
+            saveScoringConfig(config);
+            // Force scores to recalculate by updating version
+            setScoringConfigVersion(prev => prev + 1);
+          }}
+          currentConfig={loadScoringConfig()}
+          availableMetrics={visibleMetrics}
+        />
+      )}
 
       <Menu
         open={Boolean(templateMenuAnchor)}

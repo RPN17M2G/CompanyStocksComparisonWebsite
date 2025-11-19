@@ -1,9 +1,10 @@
-import { Box, Grid, Typography, Theme } from '@mui/material';
-import { Award } from 'lucide-react';
+import { Box, Grid, Typography, Theme, IconButton, Collapse } from '@mui/material';
+import { Award, ChevronDown } from 'lucide-react';
 import { GlassPaper } from '../../../shared/ui/GlassPaper';
 import { MetricRadarChart } from '../../../shared/components/MetricRadarChart';
 import { HighPriorityMetricsDashboard } from './HighPriorityMetricsDashboard';
-import { useMemo } from 'react';
+import { ScoreBreakdown } from './ScoreBreakdown';
+import { useMemo, useState } from 'react';
 import { Company, ComparisonGroup, RawFinancialData } from '../../../shared/types/types';
 import { MetricConfig, MetricDefinition } from '../types';
 
@@ -26,6 +27,20 @@ export function ComparisonSummary({
     allMetricValues,
     allValueIndicators
 }: ComparisonSummaryProps) {
+    const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+    
+    const toggleCard = (itemId: string) => {
+        setExpandedCards(prev => {
+            const next = new Set(prev);
+            if (next.has(itemId)) {
+                next.delete(itemId);
+            } else {
+                next.add(itemId);
+            }
+            return next;
+        });
+    };
+    
     if (scores.length === 0) return null;
 
     // Prepare radar chart data for high priority numeric metrics
@@ -127,15 +142,29 @@ export function ComparisonSummary({
                     </Box>
 
                     <Grid container spacing={3} sx={{ mt: 2 }}>
-                        {scores.map((score) => (
-                            <Grid item xs={12} sm={6} md={4} lg={3} key={score.itemId}>
+                        {scores.map((score) => {
+                            const isExpanded = expandedCards.has(score.itemId);
+                            return (
+                            <Grid 
+                                {...({ 
+                                    item: true, 
+                                    xs: 12, 
+                                    sm: isExpanded ? 12 : 6, 
+                                    md: isExpanded ? 12 : 4, 
+                                    lg: isExpanded ? 12 : 3 
+                                } as any)} 
+                                key={score.itemId}
+                                sx={{
+                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                }}
+                            >
                                 <GlassPaper
                             sx={{
                                 p: 3.5,
-                                textAlign: 'center',
+                                textAlign: isExpanded ? 'left' : 'center',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                 border: score.rank === 1 ? '2px solid' : '1px solid',
                                 borderColor: score.rank === 1 
                                     ? 'success.main' 
@@ -178,89 +207,117 @@ export function ComparisonSummary({
                                 } : {}
                             }}
                         >
-                            {score.rank === 1 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: isExpanded ? 2 : 0 }}>
+                                {score.rank === 1 && (
+                                    <Box
+                                        sx={{
+                                            backgroundColor: 'success.main',
+                                            borderRadius: '50%',
+                                            p: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+                                            animation: 'pulse 2s ease-in-out infinite',
+                                            '@keyframes pulse': {
+                                                '0%, 100%': { transform: 'scale(1)' },
+                                                '50%': { transform: 'scale(1.1)' }
+                                            }
+                                        }}
+                                    >
+                                        <Award size={20} color="white" />
+                                    </Box>
+                                )}
+                                <IconButton
+                                    onClick={() => toggleCard(score.itemId)}
+                                    size="small"
+                                    sx={{
+                                        ml: 'auto',
+                                        backgroundColor: (theme: Theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? 'rgba(255, 255, 255, 0.1)'
+                                                : 'rgba(0, 0, 0, 0.05)',
+                                        '&:hover': {
+                                            backgroundColor: (theme: Theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? 'rgba(255, 255, 255, 0.2)'
+                                                    : 'rgba(0, 0, 0, 0.1)',
+                                        },
+                                        transition: 'transform 0.3s ease',
+                                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    }}
+                                >
+                                    <ChevronDown size={20} />
+                                </IconButton>
+                            </Box>
+                            <Box sx={{ textAlign: isExpanded ? 'left' : 'center' }}>
+                                <Typography 
+                                    variant="subtitle1" 
+                                    fontWeight="600" 
+                                    noWrap={!isExpanded}
+                                    sx={{ mb: 2, fontSize: '1.1rem' }}
+                                >
+                                    {score.itemName}
+                                </Typography>
+                                <Typography 
+                                    variant="h1" 
+                                    sx={{ 
+                                        mb: 1,
+                                        fontWeight: '800',
+                                        background: (theme: Theme) => 
+                                            theme.palette.mode === 'dark'
+                                                ? 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)'
+                                                : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        backgroundClip: 'text',
+                                        fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' }
+                                    }}
+                                >
+                                    {score.totalScore.toFixed(1)}
+                                </Typography>
                                 <Box
                                     sx={{
-                                        position: 'absolute',
-                                        top: 12,
-                                        right: 12,
-                                        backgroundColor: 'success.main',
-                                        borderRadius: '50%',
-                                        p: 1,
-                                        display: 'flex',
+                                        display: 'inline-flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
-                                        animation: 'pulse 2s ease-in-out infinite',
-                                        '@keyframes pulse': {
-                                            '0%, 100%': { transform: 'scale(1)' },
-                                            '50%': { transform: 'scale(1.1)' }
-                                        }
+                                        gap: 0.5,
+                                        px: 2,
+                                        py: 0.75,
+                                        borderRadius: 3,
+                                        backgroundColor: (theme: Theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? 'rgba(255, 255, 255, 0.08)'
+                                                : 'rgba(0, 0, 0, 0.04)',
+                                        border: '1px solid',
+                                        borderColor: (theme: Theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? 'rgba(255, 255, 255, 0.1)'
+                                                : 'rgba(0, 0, 0, 0.1)'
                                     }}
                                 >
-                                    <Award size={20} color="white" />
+                                    <Typography 
+                                        variant="body2" 
+                                        fontWeight="600"
+                                        sx={{
+                                            color: (theme: Theme) =>
+                                                score.rank === 1
+                                                    ? 'success.main'
+                                                    : theme.palette.text.secondary
+                                        }}
+                                    >
+                                        Rank #{score.rank}
+                                    </Typography>
                                 </Box>
-                            )}
-                            <Typography 
-                                variant="subtitle1" 
-                                fontWeight="600" 
-                                noWrap 
-                                sx={{ mb: 2, fontSize: '1.1rem' }}
-                            >
-                                {score.itemName}
-                            </Typography>
-                            <Typography 
-                                variant="h1" 
-                                sx={{ 
-                                    mb: 1,
-                                    fontWeight: '800',
-                                    background: (theme: Theme) => 
-                                        theme.palette.mode === 'dark'
-                                            ? 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)'
-                                            : 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    backgroundClip: 'text',
-                                    fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' }
-                                }}
-                            >
-                                {score.totalScore.toFixed(1)}
-                            </Typography>
-                            <Box
-                                sx={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
-                                    px: 2,
-                                    py: 0.75,
-                                    borderRadius: 3,
-                                    backgroundColor: (theme: Theme) =>
-                                        theme.palette.mode === 'dark'
-                                            ? 'rgba(255, 255, 255, 0.08)'
-                                            : 'rgba(0, 0, 0, 0.04)',
-                                    border: '1px solid',
-                                    borderColor: (theme: Theme) =>
-                                        theme.palette.mode === 'dark'
-                                            ? 'rgba(255, 255, 255, 0.1)'
-                                            : 'rgba(0, 0, 0, 0.1)'
-                                }}
-                            >
-                                <Typography 
-                                    variant="body2" 
-                                    fontWeight="600"
-                                    sx={{
-                                        color: (theme: Theme) =>
-                                            score.rank === 1
-                                                ? 'success.main'
-                                                : theme.palette.text.secondary
-                                    }}
-                                >
-                                    Rank #{score.rank}
-                                </Typography>
                             </Box>
+                            <Collapse in={isExpanded} timeout={400} unmountOnExit>
+                                <Box sx={{ mt: 3 }}>
+                                    <ScoreBreakdown score={score} expanded={true} />
+                                </Box>
+                            </Collapse>
                                 </GlassPaper>
                             </Grid>
-                        ))}
+                            );
+                        })}
                     </Grid>
 
                     {/* Horizontal Separator */}

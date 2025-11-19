@@ -53,7 +53,7 @@ export interface MultiApiConfig {
     provider: string;
     apiKey: string;
   }>;
-  mergeStrategy?: 'merge' | 'first' | 'priority';
+  mergeStrategy?: 'merge' | 'first';
 }
 
 export interface IDataAdapter {

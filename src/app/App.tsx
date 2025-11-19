@@ -40,8 +40,9 @@ function App() {
           items={logic.comparisonItems}
           itemsData={logic.groupData}
           customMetrics={logic.customMetrics}
+          availableCompanies={logic.companies}
           onClose={logic.closeComparison}
-          onAddCompany={logic.handleAddCompany}
+          onAddCompany={logic.handleAddCompanyToComparison}
           onRemoveItem={logic.handleRemoveItemFromComparison}
           onToggleSelect={logic.toggleSelected}
         />

@@ -381,6 +381,24 @@ export const useAppLogic = () => {
     }
   };
 
+  const handleAddCompanyToComparison = (ticker: string) => {
+    const company = companies.find(c => c.ticker === ticker);
+    if (company && !selectedItems.has(company.id)) {
+      toggleSelected(company.id);
+      setSnackbar({
+        open: true,
+        message: `${ticker} added to comparison`,
+        severity: 'success',
+      });
+    } else if (company && selectedItems.has(company.id)) {
+      setSnackbar({
+        open: true,
+        message: `${ticker} is already in comparison`,
+        severity: 'info',
+      });
+    }
+  };
+
   return {
     // State
     companies,
@@ -438,6 +456,7 @@ export const useAppLogic = () => {
     handleRemoveGroup,
     toggleSelected,
     handleRemoveItemFromComparison,
+    handleAddCompanyToComparison,
     handleRefreshCompany,
     
     // FAB Handlers

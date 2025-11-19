@@ -1,5 +1,5 @@
 import { Box, Button, IconButton, Typography, CircularProgress } from '@mui/material';
-import { ArrowLeft, Download, FolderOpen, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Download, FolderOpen, Plus, Settings, Calculator } from 'lucide-react';
 import { GlassPaper } from '../../../shared/ui/GlassPaper';
 
 interface ComparisonHeaderProps {
@@ -8,6 +8,7 @@ interface ComparisonHeaderProps {
     onConfigure: () => void;
     onTemplates: (anchor: HTMLElement) => void;
     onExport: (anchor: HTMLElement) => void;
+    onShowScoringConfig?: () => void;
     isLoading?: boolean;
 }
 
@@ -17,6 +18,7 @@ export function ComparisonHeader({
     onConfigure,
     onTemplates,
     onExport,
+    onShowScoringConfig,
     isLoading
 }: ComparisonHeaderProps) {
     return (
@@ -30,6 +32,16 @@ export function ComparisonHeader({
                 <Typography variant="h5">Comparison Dashboard</Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
+                {onShowScoringConfig && (
+                    <Button
+                        onClick={onShowScoringConfig}
+                        startIcon={<Calculator size={16} />}
+                        variant="outlined"
+                        color="secondary"
+                    >
+                        Score Config
+                    </Button>
+                )}
                 <Button onClick={(e) => onTemplates(e.currentTarget)} startIcon={<FolderOpen />}>Templates</Button>
                 <Button onClick={(e) => onExport(e.currentTarget)} startIcon={<Download />}>Export</Button>
                 <Button 
