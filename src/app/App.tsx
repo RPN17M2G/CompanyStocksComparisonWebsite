@@ -57,22 +57,25 @@ function App() {
           onShowAddDialog={logic.openAddDialog}
           onFabMouseEnter={logic.handleFabMouseEnter}
           onFabMouseLeave={logic.handleFabMouseLeave}
+          detailViewWidth={detailViewWidth}
+          isDetailViewResizing={isDetailViewResizing}
           detailView={
             logic.detailItem && logic.detailItemData ? (
               // 1. This is the OUTER container AppLayout receives.
               <Box
                 sx={{
                   height: '100%',
-                  width: `${detailViewWidth}%`, 
+                  width: '100%',
                   display: 'flex',
                   flexShrink: 0,
                   boxSizing: 'border-box',
                 }}
               >
-                {/* 2. The Resize Handle */}
+                {/* 2. The Resize Handle - Hidden on mobile */}
                 <Box
                   onMouseDown={handleDetailResize}
                   sx={{
+                    display: { xs: 'none', md: 'block' },
                     width: '5px',
                     height: '100%',
                     cursor: 'col-resize',
@@ -92,7 +95,7 @@ function App() {
                   sx={{
                     height: '100%',
                     flexGrow: 1, // Allow content to fill remaining space
-                    p: 3,
+                    p: { xs: 2, sm: 3 },
                     boxSizing: 'border-box',
                     overflow: 'hidden',
                     // Prevent mouse events from being "lost" on the content

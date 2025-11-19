@@ -43,6 +43,7 @@ export const useResizablePanel = ({
   /**
    * Handles the global mouse move event.
    * Calculates and applies the new width for the detail view.
+   * Updates directly to allow CSS transitions to animate smoothly during drag.
    */
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isResizing) return;
@@ -52,6 +53,9 @@ export const useResizablePanel = ({
     const newWidth = ((window.innerWidth - e.clientX) / window.innerWidth) * 100;
 
     const clampedWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+    
+    // Update directly (not in requestAnimationFrame) to allow CSS transitions to work smoothly
+    // The CSS transition will handle the animation between state updates
     setWidth(clampedWidth);
   }, [isResizing, minWidth, maxWidth]);
 

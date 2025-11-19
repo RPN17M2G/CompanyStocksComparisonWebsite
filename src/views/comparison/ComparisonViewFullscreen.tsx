@@ -232,7 +232,7 @@ export function ComparisonViewFullscreen({
         isLoading={isLoading || isPending || isExporting || isLoadingTemplate}
       />
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: 3, ...scrollbarStyles }}>
+      <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 1.5, sm: 2, md: 3 }, ...scrollbarStyles }}>
         {/* Dashboard Section: Scores, High Priority Metrics, and Radar Chart */}
         <ComparisonSummary
           scores={allScores}

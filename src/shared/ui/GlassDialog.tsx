@@ -74,10 +74,10 @@ export function GlassDialog({
           backdropFilter: 'blur(10px)',
           borderBottom: 1,
           borderColor: 'divider',
+          fontWeight: 600,
+          fontSize: '1.25rem',
         }}>
-          <Typography variant="h6" fontWeight="600">
-            {title}
-          </Typography>
+          {title}
           <IconButton
             aria-label="close"
             onClick={onClose}

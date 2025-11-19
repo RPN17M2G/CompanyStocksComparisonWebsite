@@ -10,6 +10,8 @@ import {
   SxProps,
   Theme,
   keyframes,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { RefreshCw } from 'lucide-react';
 import { Company, ComparisonGroup, CustomMetric } from '../../shared/types/types';
@@ -71,14 +73,14 @@ const TileSelectCheckbox = React.memo(
         onClick={handleClick}
         sx={{
           position: 'absolute',
-          top: 8,
-          right: 8,
+          top: { xs: 4, sm: 8 },
+          right: { xs: 4, sm: 8 },
           zIndex: 1,
           backgroundColor: 'rgba(120, 120, 120, 0.1)',
           '&:hover': {
             backgroundColor: 'rgba(120, 120, 120, 0.2)',
           },
-          padding: 1,
+          padding: { xs: 0.75, sm: 1 },
           borderRadius: '50%',
         }}
       />
@@ -97,6 +99,8 @@ export function CompanyTileContent({
   onRefresh,
   cardSx,
 }: CompanyTileContentProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isGroup = 'isGroup' in item;
   const company = item as Company;
   const group = item as ComparisonGroup;
@@ -206,8 +210,8 @@ export function CompanyTileContent({
             disabled={company.isLoading}
             sx={{
               position: 'absolute',
-              top: 8,
-              right: 56,
+              top: { xs: 4, sm: 8 },
+              right: { xs: 48, sm: 56 },
               zIndex: 1,
               backgroundColor: 'rgba(120, 120, 120, 0.1)',
               '&:hover': {
@@ -216,7 +220,7 @@ export function CompanyTileContent({
               '&:disabled': {
                 opacity: 0.5,
               },
-              padding: 1,
+              padding: { xs: 0.75, sm: 1 },
             }}
             title="Refresh data"
           >
@@ -229,14 +233,14 @@ export function CompanyTileContent({
           </IconButton>
         )}
 
-        <Box sx={{ pt: 3, px: 1 }}>
+        <Box sx={{ pt: { xs: 2, sm: 2.5, md: 3 }, px: { xs: 0.5, sm: 1 } }}>
           <Box
             display="flex"
             justifyContent="space-between"
             alignItems="center"
-            mb={2}
+            mb={{ xs: 1.5, sm: 2 }}
           >
-            <Box sx={{ pr: '40px' }}>
+            <Box sx={{ pr: { xs: '35px', sm: '40px' }, flex: 1, minWidth: 0 }}>
               <Typography
                 variant="h6"
                 component="div"
@@ -244,6 +248,8 @@ export function CompanyTileContent({
                   maxWidth: '22ch', 
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
+                  fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' },
+                  lineHeight: { xs: 1.3, sm: 1.4 },
                 }}
               >
                 {title}
@@ -255,6 +261,8 @@ export function CompanyTileContent({
                   maxWidth: '22ch', 
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  mt: { xs: 0.25, sm: 0.5 },
                 }}
               >
                 {subtitle}
@@ -264,9 +272,10 @@ export function CompanyTileContent({
                   variant="caption"
                   color="text.secondary"
                   sx={{
-                    mt: 0.5,
-                    fontSize: '0.7rem',
+                    mt: { xs: 0.25, sm: 0.5 },
+                    fontSize: { xs: '0.65rem', sm: '0.7rem' },
                     opacity: 0.7,
+                    display: { xs: 'none', sm: 'block' },
                   }}
                 >
                   Updated: {new Date(company.lastUpdated).toLocaleString()}
@@ -282,21 +291,26 @@ export function CompanyTileContent({
               />
             )}
           </Box>
-          <Box display="flex" flexDirection="column" gap={1}>
-            {metricsToShow.map(metric => (
+          <Box display="flex" flexDirection="column" gap={{ xs: 0.75, sm: 1 }}>
+            {metricsToShow.slice(0, isMobile ? 6 : 10).map(metric => (
               <Box
                 key={metric.id}
                 display="flex"
                 justifyContent="space-between"
+                sx={{ 
+                  py: { xs: 0.25, sm: 0 },
+                }}
               >
                 <Typography
                   variant="body2"
                   color="text.secondary"
                   sx={{
-                    maxWidth: '18ch', 
+                    maxWidth: { xs: '14ch', sm: '18ch' }, 
                     wordWrap: 'break-word',
                     overflowWrap: 'break-word',
-                    mr: 1,
+                    mr: { xs: 0.5, sm: 1 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    lineHeight: { xs: 1.3, sm: 1.5 },
                   }}
                 >
                   {metric.name}:
@@ -307,7 +321,9 @@ export function CompanyTileContent({
                   fontWeight="medium"
                   sx={{
                     flexShrink: 0,
-                    pl: 1, 
+                    pl: { xs: 0.5, sm: 1 },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    textAlign: 'right',
                   }}
                 >
                   {metric.formattedValue}

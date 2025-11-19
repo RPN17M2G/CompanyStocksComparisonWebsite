@@ -58,11 +58,11 @@ export function CompanySortFilter({
     <Box
       sx={{
         display: 'flex',
-        gap: 2,
+        gap: { xs: 1, sm: 2 },
         flexWrap: 'wrap',
         alignItems: 'flex-start',
         mb: 3,
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         borderRadius: 2,
         backgroundColor: (theme) =>
           theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
@@ -71,7 +71,7 @@ export function CompanySortFilter({
       }}
     >
       {/* Sort Controls */}
-      <FormControl size="small" sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
         <InputLabel>Sort By</InputLabel>
         <Select
           value={sortBy || ''}
@@ -107,7 +107,7 @@ export function CompanySortFilter({
       )}
 
       {/* Filter Controls */}
-      <FormControl size="small" sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
         <InputLabel>Filter By</InputLabel>
         <Select
           value={filterMetric || ''}
@@ -125,7 +125,7 @@ export function CompanySortFilter({
 
       {filterMetric && (
         <>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 120 }, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 1 auto' } }}>
             <InputLabel>Operator</InputLabel>
             <Select
               value={filterOperator}
@@ -148,7 +148,7 @@ export function CompanySortFilter({
             type="number"
             value={filterValue}
             onChange={(e) => onFilterValueChange(e.target.value)}
-            sx={{ minWidth: 120 }}
+            sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 120 }, flex: { xs: '1 1 calc(50% - 8px)', sm: '0 1 auto' } }}
           />
         </>
       )}

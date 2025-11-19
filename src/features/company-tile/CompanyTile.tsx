@@ -7,10 +7,10 @@ import { SxProps, Theme } from '@mui/material';
 
 export const cardSx: SxProps<Theme> = {
   height: '100%',
-  minHeight: 200,
+  minHeight: { xs: 160, sm: 180, md: 200 },
   cursor: 'pointer',
   transition: 'all 0.3s ease',
-  borderRadius: 4,
+  borderRadius: { xs: 2, sm: 3, md: 4 },
   backgroundColor: (theme: Theme) =>
     theme.palette.mode === 'dark' ? 'rgba(18, 30, 54, 0.7)' : 'rgba(255, 255, 255, 0.7)',
   backdropFilter: 'blur(10px)',
@@ -18,7 +18,7 @@ export const cardSx: SxProps<Theme> = {
   border: '1px solid transparent',
   '&:hover': {
     boxShadow: (theme: Theme) => theme.shadows[6],
-    transform: 'translateY(-4px)',
+    transform: { xs: 'none', sm: 'translateY(-4px)' },
     borderColor: 'primary.light',
   },
 };

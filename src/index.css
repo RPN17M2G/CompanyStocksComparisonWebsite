@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .logo-img {
+    height: 60px !important;
+  }
+}

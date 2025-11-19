@@ -1,4 +1,4 @@
-import { Box, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Theme } from '@mui/material';
+import { Box, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Theme, useMediaQuery, useTheme } from '@mui/material';
 import { X, ChevronDown, ChevronRight } from 'lucide-react';
 import React, { memo, useState, useEffect, useMemo } from 'react';
 import { GlassPaper } from '../../../../shared/ui/GlassPaper';
@@ -23,6 +23,8 @@ export const ComparisonTable = memo(({
     allValueIndicators,
     onRemoveItem
 }: ComparisonTableProps) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
         new Set(Object.keys(metricsByCategory))
     );
@@ -112,25 +114,61 @@ export const ComparisonTable = memo(({
     return (
         <Box sx={{ pb: 4 }}>
             <GlassPaper sx={{ overflow: 'hidden' }}>
-                <TableContainer sx={scrollbarStyles}>
-                    <Table size="small">
+                <TableContainer 
+                    sx={{
+                        ...scrollbarStyles,
+                        overflowX: 'auto',
+                        maxWidth: '100%',
+                        '&::-webkit-scrollbar': {
+                            height: { xs: 8, sm: 12 },
+                        },
+                    }}
+                >
+                    <Table size="small" sx={{ minWidth: { xs: 600, sm: 'auto' } }}>
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ ...headerCellSx, left: 0, zIndex: 11, position: 'sticky', minWidth: 200, borderRight: '1px solid divider' }}>
+                                <TableCell sx={{ 
+                                    ...headerCellSx, 
+                                    left: 0, 
+                                    zIndex: 11, 
+                                    position: 'sticky', 
+                                    minWidth: { xs: 150, sm: 200 }, 
+                                    borderRight: '1px solid divider' 
+                                }}>
                                     Metric
                                 </TableCell>
                                 {items.map(item => (
-                                    <TableCell key={item.id} align="right" sx={headerCellSx}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
-                                            <Typography noWrap variant="subtitle2">
+                                    <TableCell 
+                                        key={item.id} 
+                                        align="right" 
+                                        sx={{ 
+                                            ...headerCellSx,
+                                            minWidth: { xs: 120, sm: 150 }
+                                        }}
+                                    >
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'flex-end', 
+                                            gap: { xs: 0.5, sm: 1 } 
+                                        }}>
+                                            <Typography 
+                                                noWrap 
+                                                variant="subtitle2"
+                                                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                                            >
                                                 {'isGroup' in item ? item.name : item.ticker}
                                             </Typography>
                                             <IconButton
                                                 size="small"
                                                 onClick={() => onRemoveItem(item.id)}
-                                                sx={{ opacity: 0.7, '&:hover': { opacity: 1, color: 'error.main' } }}
+                                                sx={{ 
+                                                    opacity: 0.7, 
+                                                    '&:hover': { opacity: 1, color: 'error.main' },
+                                                    padding: { xs: '4px', sm: '8px' }
+                                                }}
                                             >
-                                                <X size={14} />
+                                                <X size={isMobile ? 12 : 14} />
                                             </IconButton>
                                         </Box>
                                     </TableCell>

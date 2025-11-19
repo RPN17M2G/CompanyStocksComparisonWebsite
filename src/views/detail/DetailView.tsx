@@ -110,7 +110,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          p: 2,
+          p: { xs: 1.5, sm: 2 },
           backgroundColor: (theme: any) => 
             theme.palette.mode === 'dark' ? 'rgba(11, 17, 32, 0.8)' : 'rgba(248, 250, 252, 0.8)',
           backdropFilter: 'blur(10px)',
@@ -149,7 +149,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
       </Box>
 
       {/* --- Scrolling Content Area --- */}
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         {!data || Object.keys(data).length <= 2 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="h6" color="text.secondary" gutterBottom>

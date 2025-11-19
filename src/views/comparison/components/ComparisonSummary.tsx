@@ -1,4 +1,4 @@
-import { Box, Grid, Typography, Theme, IconButton, Collapse } from '@mui/material';
+import { Box, Grid, Typography, Theme, IconButton, Collapse, useMediaQuery, useTheme } from '@mui/material';
 import { Award, ChevronDown } from 'lucide-react';
 import { GlassPaper } from '../../../shared/ui/GlassPaper';
 import { MetricRadarChart } from '../../../shared/components/MetricRadarChart';
@@ -27,6 +27,8 @@ export function ComparisonSummary({
     allMetricValues,
     allValueIndicators
 }: ComparisonSummaryProps) {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
     
     const toggleCard = (itemId: string) => {
@@ -106,9 +108,22 @@ export function ComparisonSummary({
 
     return (
         <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', gap: 3, position: 'relative', alignItems: 'flex-start', minHeight: '600px' }}>
+            <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: { xs: 2, sm: 3 }, 
+                position: 'relative', 
+                alignItems: 'flex-start', 
+                minHeight: { xs: 'auto', md: '600px' } 
+            }}>
                 {/* Left side: Scores and Key Metrics */}
-                <Box sx={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ 
+                    flex: { xs: '1 1 100%', md: '1 1 50%' }, 
+                    minWidth: 0, 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    width: { xs: '100%', md: 'auto' }
+                }}>
                     {/* Left Header */}
                     <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, height: 40 }}>
                         <Box
@@ -355,7 +370,7 @@ export function ComparisonSummary({
                         alignSelf: 'stretch',
                         position: 'relative',
                         flexShrink: 0,
-                        minHeight: '600px',
+                        minHeight: { xs: 'auto', md: '600px' },
                         overflow: 'visible',
                         '&::before': {
                             content: '""',
@@ -497,13 +512,14 @@ export function ComparisonSummary({
                 {/* Right side: Radar Chart and Bar Charts */}
                 <Box 
                     sx={{ 
-                        flex: '1 1 50%',
+                        flex: { xs: '1 1 100%', md: '1 1 50%' },
                         flexShrink: 0,
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'flex-start',
                         minWidth: 0,
-                        gap: 3
+                        width: { xs: '100%', md: 'auto' },
+                        gap: { xs: 2, sm: 3 }
                     }}
                 >
                     {/* Right Header */}
@@ -544,7 +560,7 @@ export function ComparisonSummary({
                             title=""
                             metrics={radarChartData.metrics.length >= 3 ? radarChartData.metrics : []}
                             items={radarChartData.items}
-                            height={500}
+                            height={isMobile ? 300 : 500}
                         />
                     </Box>
 
