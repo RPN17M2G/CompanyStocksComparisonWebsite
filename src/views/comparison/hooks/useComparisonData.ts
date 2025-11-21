@@ -30,12 +30,21 @@ export function useComparisonData(
                 const val = data ? def.calculateValue(data) : null;
 
                 // Preserve strings, validate numbers
+                // Handle null/undefined explicitly, preserve 0 and other valid numbers
                 let safeVal: string | number | null = null;
-                if (typeof val === 'string') {
+                if (val === null || val === undefined) {
+                    safeVal = null;
+                } else if (typeof val === 'string') {
                     safeVal = val;
-                } else if (typeof val === 'number' && isFinite(val)) {
-                    safeVal = val;
-                    rawValuesArray.push(val);
+                } else if (typeof val === 'number') {
+                    // Accept 0, finite numbers, but reject NaN, Infinity, -Infinity
+                    if (isFinite(val)) {
+                        safeVal = val;
+                        rawValuesArray.push(val);
+                    } else {
+                        // NaN, Infinity, or -Infinity - set to null
+                        safeVal = null;
+                    }
                 }
 
                 itemValues.set(item.id, safeVal);

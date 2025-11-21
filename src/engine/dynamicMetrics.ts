@@ -150,21 +150,30 @@ export function generateDynamicMetrics(data: RawFinancialData): DynamicMetric[] 
 }
 
 /**
- * Gets all available metrics from multiple data sources
+ * Gets all available metrics from multiple data sources (all companies in comparison)
+ * This collects ALL unique field names from ALL companies to ensure a complete comparison
  */
 export function getAllAvailableMetrics(dataSources: RawFinancialData[]): DynamicMetric[] {
   const allFields = new Map<string, DynamicMetric>();
   
-  dataSources.forEach(data => {
+  // Process each company's data to collect all unique metrics
+  dataSources.forEach((data, index) => {
+    if (!data || typeof data !== 'object') {
+      return; // Skip invalid data
+    }
+    
     const metrics = generateDynamicMetrics(data);
     metrics.forEach(metric => {
-      // Use the first occurrence to determine format/category
+      // Collect all unique field names from all companies
+      // If a field appears in multiple companies, use the first occurrence for format/category
+      // but ensure the field is included even if only one company has it
       if (!allFields.has(metric.id)) {
         allFields.set(metric.id, metric);
       }
     });
   });
   
+  // Return sorted metrics (by category, then by name)
   return Array.from(allFields.values()).sort((a, b) => {
     if (a.category !== b.category) {
       return a.category.localeCompare(b.category);

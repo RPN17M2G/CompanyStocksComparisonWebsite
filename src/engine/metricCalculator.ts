@@ -2,12 +2,86 @@ import { RawFinancialData, CustomMetric, ComparisonGroup, Company, CoreMetric, D
 import { coreMetrics } from './coreMetrics';
 import { getAllAvailableMetrics } from './dynamicMetrics';
 import {
-  sanitizeFieldName,
   sanitizeFormula,
   createFieldMapping,
   replaceFieldNamesInFormula,
   validateFormulaFields,
 } from './formulaSanitizer';
+
+/**
+ * Normalizes a field name for comparison by removing spaces, special chars, and converting to lowercase
+ */
+function normalizeFieldName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric characters
+    .trim();
+}
+
+/**
+ * Tries to find a matching field in the data when exact match fails
+ * This handles cases where field names differ (e.g., "currentRatio" vs "Financials Metric Current Ratio Annual")
+ */
+function findMatchingField(
+  metricId: string,
+  metricName: string,
+  data: RawFinancialData
+): string | number | null {
+  // Normalize the metric identifier and name for comparison
+  const normalizedMetricId = normalizeFieldName(metricId);
+  const normalizedMetricName = normalizeFieldName(metricName);
+  
+  // Extract key words from metric name (e.g., "Current Ratio" -> ["current", "ratio"])
+  const metricWords = normalizedMetricName.length > normalizedMetricId.length 
+    ? normalizedMetricName.match(/\w+/g) || []
+    : normalizedMetricId.match(/\w+/g) || [];
+  
+  // If we have a very short pattern, use the full normalized string
+  const searchPattern = metricWords.length > 0 && metricWords.join('').length > 3
+    ? metricWords.join('')
+    : normalizedMetricId;
+  
+  let bestMatch: { fieldName: string; value: any; score: number } | null = null;
+  
+  // Try to find a field that matches
+  for (const fieldName in data) {
+    if (data.hasOwnProperty(fieldName)) {
+      const normalizedField = normalizeFieldName(fieldName);
+      const value = data[fieldName];
+      
+      if (value === undefined || value === null) {
+        continue;
+      }
+      
+      // Exact match gets highest priority
+      if (normalizedField === normalizedMetricId || normalizedField === normalizedMetricName) {
+        return value;
+      }
+      
+      // Check if field contains the search pattern (e.g., "currentratio" in "financialsmetriccurrentratioannual")
+      if (normalizedField.includes(searchPattern) || searchPattern.includes(normalizedField)) {
+        // Score based on how close the match is (prefer shorter field names that match)
+        const score = searchPattern.length / normalizedField.length;
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { fieldName, value, score };
+        }
+      }
+      
+      // Also check if all key words from metric name are present in field name
+      if (metricWords.length > 0) {
+        const allWordsMatch = metricWords.every(word => normalizedField.includes(word));
+        if (allWordsMatch) {
+          const score = metricWords.join('').length / normalizedField.length;
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { fieldName, value, score };
+          }
+        }
+      }
+    }
+  }
+  
+  return bestMatch ? bestMatch.value : null;
+}
 
 /**
  * Parses a numeric value from a string or number, handling units like Billion, Million, K, etc.
@@ -86,15 +160,25 @@ export function parseNumericValue(value: string | number | null | undefined): nu
 export function calculateCoreMetric(metricId: string, data: RawFinancialData): string | number | null {
   const legacyMetric = coreMetrics.find(m => m.id === metricId);
   if (legacyMetric) {
-    return legacyMetric.calculate(data);
+    // Try the legacy metric's calculate function first
+    const result = legacyMetric.calculate(data);
+    if (result !== null && result !== undefined) {
+      return result;
+    }
+    
+    // If legacy metric returns null, try to find a matching field in the data
+    // This handles cases where the field exists but with a different name
+    return findMatchingField(metricId, legacyMetric.name, data);
   }
   
+  // Try exact match first
   const value = data[metricId];
-  if (value === undefined || value === null) {
-    return null;
+  if (value !== undefined && value !== null) {
+    return value;
   }
   
-  return value;
+  // If exact match fails, try to find a matching field
+  return findMatchingField(metricId, metricId, data);
 }
 
 export function calculateDynamicMetric(metric: DynamicMetric, data: RawFinancialData): string | number | null {
@@ -305,7 +389,10 @@ export function formatMetricValue(value: string | number | null, format: string)
   if (!isFinite(value)) return null;
 
   try {
-    switch (format) {
+    // Handle empty or invalid format strings
+    const normalizedFormat = (format || '').trim().toLowerCase();
+    
+    switch (normalizedFormat) {
       case 'currency':
         if (Math.abs(value) >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
         if (Math.abs(value) >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
@@ -316,12 +403,20 @@ export function formatMetricValue(value: string | number | null, format: string)
       case 'ratio':
         return value.toFixed(2);
       case 'number':
-        return value.toLocaleString();;
-      default:
+        return value.toLocaleString();
+      case 'text':
         return value.toString();
+      default:
+        // For unknown formats, try to format as number as fallback
+        return value.toLocaleString();
     }
   } catch (error) {
-    console.error("Error formatting value:", value, error);
-    return null;
+    console.error("Error formatting value:", value, "format:", format, error);
+    // Fallback: try to return a string representation
+    try {
+      return value.toString();
+    } catch {
+      return null;
+    }
   }
 }
