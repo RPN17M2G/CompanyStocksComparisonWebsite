@@ -1,13 +1,7 @@
 import { RawFinancialData } from '../shared/types/types';
 
-/**
- * Common values that should be treated as null/undefined
- */
 const NULL_VALUES = ['N/A', 'None', '-', '', null, undefined];
 
-/**
- * Parses a value to a number if possible, otherwise returns undefined
- */
 function parseNumber(value: any): number | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'number') {
@@ -22,38 +16,27 @@ function parseNumber(value: any): number | undefined {
   return undefined;
 }
 
-/**
- * Parses a value to a string if possible, otherwise returns undefined
- */
 function parseString(value: any): string | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'string') {
     const trimmed = value.trim();
     return NULL_VALUES.includes(trimmed) ? undefined : trimmed;
   }
-  // Convert other types to string
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
   return undefined;
 }
 
-/**
- * Checks if a value should be included in the output
- */
 function isValidValue(value: any): boolean {
   if (value === null || value === undefined) return false;
   if (typeof value === 'string' && NULL_VALUES.includes(value.trim())) return false;
   if (typeof value === 'object' && !Array.isArray(value)) {
-    // Skip empty objects
     return Object.keys(value).length > 0;
   }
   return true;
 }
 
-/**
- * Recursively flattens nested objects with optional prefix
- */
 function flattenObject(obj: any, prefix: string = '', maxDepth: number = 2, currentDepth: number = 0): Record<string, any> {
   if (currentDepth >= maxDepth || !obj || typeof obj !== 'object' || Array.isArray(obj)) {
     return {};
@@ -66,21 +49,18 @@ function flattenObject(obj: any, prefix: string = '', maxDepth: number = 2, curr
     const newKey = prefix ? `${prefix}_${key}` : key;
 
     if (value === null || value === undefined) {
-      return; // Skip null/undefined
+      return;
     }
 
     if (Array.isArray(value)) {
-      // For arrays, take the first element if it's an object, otherwise skip
       if (value.length > 0 && typeof value[0] === 'object' && !Array.isArray(value[0])) {
         const nested = flattenObject(value[0], newKey, maxDepth, currentDepth + 1);
         Object.assign(flattened, nested);
       }
     } else if (typeof value === 'object') {
-      // Recursively flatten nested objects
       const nested = flattenObject(value, newKey, maxDepth, currentDepth + 1);
       Object.assign(flattened, nested);
     } else {
-      // Primitive value
       flattened[newKey] = value;
     }
   });
@@ -88,17 +68,13 @@ function flattenObject(obj: any, prefix: string = '', maxDepth: number = 2, curr
   return flattened;
 }
 
-/**
- * Transforms API response data into RawFinancialData by capturing ALL fields
- * This is completely generic and future-proof - any new fields will be automatically included
- */
 export function transformApiData(
   data: any,
   options: {
     tickerField?: string | string[];
     nameField?: string | string[];
     excludeFields?: string[];
-    prefixFields?: Record<string, string>; // Map of source keys to prefixes
+    prefixFields?: Record<string, string>;
     flattenNested?: boolean;
   } = {}
 ): RawFinancialData {
@@ -112,7 +88,6 @@ export function transformApiData(
 
   const result: any = {};
 
-  // Helper to find a field value by trying multiple possible field names
   const findField = (fields: string | string[], data: any): string | undefined => {
     const fieldArray = Array.isArray(fields) ? fields : [fields];
     for (const field of fieldArray) {

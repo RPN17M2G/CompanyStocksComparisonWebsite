@@ -15,7 +15,6 @@ export function useMetricDefinitions(
 ) {
     return useMemo(() => {
         const definitions = new Map<string, MetricDefinition>();
-        // Collect data from ALL companies in the comparison to ensure complete metric discovery
         const allData = Array.from(itemsData.values()).filter(Boolean) as RawFinancialData[];
 
         const detectTimePeriod = (metricId: string, metricName: string) => {
@@ -29,7 +28,6 @@ export function useMetricDefinitions(
             return { isAnnual: false, isQuarterly: false, subcategory: undefined };
         };
 
-        // Core
         coreMetrics.forEach(m => {
             definitions.set(m.id, {
                 ...m,
@@ -39,19 +37,14 @@ export function useMetricDefinitions(
             });
         });
 
-        // Dynamic - collect metrics from ALL companies to ensure complete comparison
-        // This ensures that if Company A has field "X" and Company B has field "Y",
-        // both metrics will appear in the comparison table
         const dynamicMetrics = getAllAvailableMetrics(allData);
-        // Create a case-insensitive map to check for duplicates
-        const normalizedIds = new Map<string, string>(); // normalized -> original
+        const normalizedIds = new Map<string, string>();
         definitions.forEach((_, id) => {
             normalizedIds.set(id.toLowerCase(), id);
         });
         
         dynamicMetrics.forEach(m => {
             const normalizedId = m.id.toLowerCase();
-            // Skip if a core metric with the same normalized ID already exists
             if (!normalizedIds.has(normalizedId)) {
                 definitions.set(m.id, {
                     ...m,
@@ -63,7 +56,6 @@ export function useMetricDefinitions(
             }
         });
 
-        // Custom
         customMetrics.forEach(m => {
             definitions.set(m.id, {
                 ...m,
