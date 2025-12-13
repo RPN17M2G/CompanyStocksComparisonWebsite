@@ -4,6 +4,7 @@ import { MetricConfig, MetricDefinition } from '../types';
 import { calculateImprovedScores } from '../../../engine/improvedScoreCalculator';
 import { getDefaultScoringConfig, validateScoringConfig, DEFAULT_SCORING_CONFIG } from '../../../engine/scoringConfig';
 import { loadScoringConfig } from '../../../services/scoringStorage';
+import { calculateCustomMetric } from '../../../engine/metricCalculator';
 
 export function useImprovedScores(
   items: (Company | ComparisonGroup)[],
@@ -175,7 +176,6 @@ export function useImprovedScores(
         metricDefsForScoring.set(cm.id, {
           name: cm.name,
           calculateValue: (data: RawFinancialData) => {
-            const { calculateCustomMetric } = require('../../../engine/metricCalculator');
             return calculateCustomMetric(cm, data);
           },
           betterDirection: cm.betterDirection,
