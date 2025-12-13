@@ -11,7 +11,7 @@ import {
   Theme,
   SxProps,
 } from '@mui/material';
-import { Trash2, Plus, Download, Upload } from 'lucide-react';
+import { Trash2, Plus, Download, Upload, Edit } from 'lucide-react';
 import { CustomMetric, RawFinancialData } from '../../shared/types/types';
 import { GlassDialog } from '../../shared/ui/GlassDialog';
 import { MetricCreatorForm } from './MetricCreatorForm'; 
@@ -33,6 +33,7 @@ interface CustomMetricEditorProps {
   customMetrics: CustomMetric[];
   onClose: () => void;
   onAddMetric: (metric: CustomMetric) => void;
+  onUpdateMetric?: (metric: CustomMetric) => void;
   onDeleteMetric: (metricId: string) => void;
   onImportMetrics?: (metrics: CustomMetric[]) => void;
   availableData?: RawFinancialData[]; // For dynamic field discovery
@@ -43,21 +44,42 @@ export function CustomMetricEditor({
   customMetrics,
   onClose,
   onAddMetric,
+  onUpdateMetric,
   onDeleteMetric,
   onImportMetrics,
   availableData = [],
 }: CustomMetricEditorProps) {
   const [showCreator, setShowCreator] = useState(false);
+  const [editingMetric, setEditingMetric] = useState<CustomMetric | null>(null);
 
   const handleAddAndClose = useCallback((metric: CustomMetric) => {
-    onAddMetric(metric);
+    if (editingMetric) {
+      // Update existing metric
+      if (onUpdateMetric) {
+        onUpdateMetric(metric);
+      } else {
+        // Fallback: delete old and add new
+        onDeleteMetric(editingMetric.id);
+        onAddMetric(metric);
+      }
+      setEditingMetric(null);
+    } else {
+      // Add new metric
+      onAddMetric(metric);
+    }
     setShowCreator(false);
-  }, [onAddMetric]);
+  }, [onAddMetric, onUpdateMetric, onDeleteMetric, editingMetric]);
   
   const handleClose = useCallback(() => {
     setShowCreator(false);
+    setEditingMetric(null);
     onClose();
   }, [onClose]);
+
+  const handleEdit = useCallback((metric: CustomMetric) => {
+    setEditingMetric(metric);
+    setShowCreator(true);
+  }, []);
 
   const handleExport = useCallback(() => {
     const dataStr = JSON.stringify(customMetrics, null, 2);
@@ -182,6 +204,21 @@ export function CustomMetricEditor({
                 <ListItemSecondaryAction>
                   <IconButton
                     edge="end"
+                    onClick={() => handleEdit(metric)}
+                    color="primary"
+                    sx={{
+                      marginRight: 1,
+                      backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                      '&:hover': {
+                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                      }
+                    }}
+                    title="Edit metric"
+                  >
+                    <Edit size={18} />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
                     onClick={() => onDeleteMetric(metric.id)} 
                     color="error"
                     sx={{
@@ -191,6 +228,7 @@ export function CustomMetricEditor({
                         backgroundColor: 'rgba(211, 47, 47, 0.2)',
                       }
                     }}
+                    title="Delete metric"
                   >
                     <Trash2 size={20} />
                   </IconButton>
@@ -205,7 +243,10 @@ export function CustomMetricEditor({
         <Button
           variant="outlined"
           startIcon={<Plus size={20} />}
-          onClick={() => setShowCreator(true)}
+          onClick={() => {
+            setEditingMetric(null);
+            setShowCreator(true);
+          }}
           fullWidth
           sx={{ borderRadius: 2, py: 1.5, mt: 2 }}
         >
@@ -215,8 +256,12 @@ export function CustomMetricEditor({
         <Box sx={{ ...glassyCardSx, p: 3 }}>
           <MetricCreatorForm
             onAddMetric={handleAddAndClose}
-            onCancel={() => setShowCreator(false)}
+            onCancel={() => {
+              setShowCreator(false);
+              setEditingMetric(null);
+            }}
             availableData={availableData}
+            initialMetric={editingMetric || undefined}
           />
         </Box>
       )}

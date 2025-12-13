@@ -8,7 +8,7 @@ import { mergeApiResponses } from './dataTransformer';
 export async function fetchFromMultipleApis(
   ticker: string,
   providers: Array<{ provider: string; apiKey: string }>,
-  mergeStrategy: 'merge' | 'first' | 'priority' = 'merge'
+  mergeStrategy: 'merge' | 'first' = 'merge'
 ): Promise<RawFinancialData> {
   if (providers.length === 0) {
     throw new Error('No API providers specified');
@@ -40,10 +40,6 @@ export async function fetchFromMultipleApis(
   switch (mergeStrategy) {
     case 'first':
       // Return first successful result
-      return validResults[0];
-    
-    case 'priority':
-      // Return first successful result (same as first for now)
       return validResults[0];
     
     case 'merge':

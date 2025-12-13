@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Grid, Typography } from '@mui/material';
+import { Alert, Box, Button, Grid, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { Plus, Users, X } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Company, ComparisonGroup, CustomMetric, RawFinancialData } from '../shared/types/types';
@@ -6,6 +6,7 @@ import { CompanyTile } from '../features/company-tile/CompanyTile';
 import { CompanySortFilter } from '../features/company-controls/CompanySortFilter';
 import { calculateCoreMetric } from '../engine/metricCalculator';
 import { getAllAvailableMetrics } from '../engine/dynamicMetrics';
+import logo_with_name from '../assets/logo-with-name.png';
 
 type MainContentProps = {
   hasConfig: boolean;
@@ -24,6 +25,7 @@ type MainContentProps = {
   onRemoveGroup: (id: string) => void;
   onRemoveCompany: (id: string) => void;
   onShowDetails: (id: string) => void;
+  onRefreshCompany?: (ticker: string) => void;
 };
 
 export const MainContent = ({
@@ -43,7 +45,10 @@ export const MainContent = ({
   onRemoveGroup,
   onRemoveCompany,
   onShowDetails,
+  onRefreshCompany,
 }: MainContentProps) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const hasSelection = selectedItems.size >= 2;
   const showDetailView = detailItemId !== null;
 
@@ -127,26 +132,50 @@ export const MainContent = ({
       )}
 
       {hasSelection && (
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ mb: 3, display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             color="secondary"
             startIcon={<Users size={20} />}
             onClick={onShowCreateGroup}
             disabled={selectedCompaniesCount < 2}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
-            Create Group ({selectedCompaniesCount} companies)
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              Create Group ({selectedCompaniesCount} companies)
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+              Group ({selectedCompaniesCount})
+            </Box>
           </Button>
-          <Button variant="contained" onClick={onShowComparison}>
-            Compare Selected ({selectedItems.size})
+          <Button 
+            variant="contained" 
+            onClick={onShowComparison}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              Compare Selected ({selectedItems.size})
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+              Compare ({selectedItems.size})
+            </Box>
           </Button>
           <Button
             variant="outlined"
             color="warning"
             startIcon={<X size={20} />}
             onClick={onDeselectAll}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
-            Deselect All
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              Deselect All
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+              Clear
+            </Box>
           </Button>
         </Box>
       )}
@@ -176,14 +205,34 @@ export const MainContent = ({
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 400,
+            minHeight: { xs: 300, sm: 400 },
             textAlign: 'center',
+            px: { xs: 2, sm: 0 },
           }}
         >
-          <Typography variant="h5" color="text.secondary" gutterBottom>
+          <img 
+            src={logo_with_name} 
+            alt="PeerCompare Logo" 
+            style={{ 
+              height: isMobile ? '300px' : '520px',
+              maxWidth: '100%',
+              objectFit: 'contain'
+            }} 
+          />
+          <Typography 
+            variant="h5" 
+            color="text.secondary" 
+            gutterBottom
+            sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+          >
             No companies added yet
           </Typography>
-          <Typography variant="body1" color="text.secondary" mb={3}>
+          <Typography 
+            variant="body1" 
+            color="text.secondary" 
+            mb={3}
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, px: { xs: 2, sm: 0 } }}
+          >
             {hasConfig
               ? 'Click the + button to add your first company'
               : 'Configure settings first, then add companies'}
@@ -194,13 +243,14 @@ export const MainContent = ({
               size="large"
               startIcon={<Plus size={24} />}
               onClick={onShowAddDialog}
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
             >
               Add Company
             </Button>
           )}
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
           {processedItems.map((item) => {
             const isGroup = 'isGroup' in item;
             return (
@@ -224,6 +274,7 @@ export const MainContent = ({
                       : () => onRemoveCompany(item.id)
                   }
                   onShowDetails={() => onShowDetails(item.id)}
+                  onRefresh={onRefreshCompany}
                 />
               </Grid>
             );
@@ -233,3 +284,4 @@ export const MainContent = ({
     </>
   );
 };
+

@@ -1,4 +1,5 @@
-import { DataProviderConfig, CustomMetric, ComparisonGroup } from '../shared/types/types';
+// src/services/storageService.ts
+import { DataProviderConfig, CustomMetric, ComparisonGroup, RawFinancialData } from '../shared/types/types';
 
 const STORAGE_KEYS = {
   COMPANIES: 'stock_dashboard_companies',
@@ -6,31 +7,23 @@ const STORAGE_KEYS = {
   CUSTOM_METRICS: 'stock_dashboard_custom_metrics',
   COMPARISON_GROUPS: 'stock_dashboard_groups',
   KEY_METRICS: 'stock_dashboard_key_metrics',
+  API_KEYS: 'stock_dashboard_api_keys',
+  COMPANY_CACHE: 'stock_dashboard_company_cache',
+  LAST_REFRESH_ALL: 'stock_dashboard_last_refresh_all',
 };
 
-/**
- * Safely retrieves and parses a JSON item from localStorage.
- * @param key The localStorage key.
- * @param defaultValue A fallback value if the key doesn't exist or is invalid JSON.
- * @returns The parsed item or the default value.
- */
-function getItem<T>(key: string, defaultValue: T): T {
+// --- localStorage Helpers (for non-sensitive data) ---
+export function getItem<T>(key: string, defaultValue: T): T {
   try {
     const stored = localStorage.getItem(key);
     return stored ? (JSON.parse(stored) as T) : defaultValue;
   } catch (error) {
     console.error(`Error parsing stored item ${key}:`, error);
-    // On error, return the default value to prevent app crash
     return defaultValue;
   }
 }
 
-/**
- * Safely stringifies and saves a value to localStorage.
- * @param key The localStorage key.
- * @param value The value to save.
- */
-function setItem<T>(key: string, value: T): void {
+export function setItem<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
@@ -38,7 +31,35 @@ function setItem<T>(key: string, value: T): void {
   }
 }
 
+// --- sessionStorage Helpers (for sensitive data) ---
+function getItemSession<T>(key: string, defaultValue: T): T {
+  try {
+    const stored = sessionStorage.getItem(key); 
+    return stored ? (JSON.parse(stored) as T) : defaultValue;
+  } catch (error) {
+    console.error(`Error parsing stored session item ${key}:`, error);
+    return defaultValue;
+  }
+}
+
+function setItemSession<T>(key: string, value: T): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value)); 
+  } catch (error) {
+    console.error(`Error saving stored session item ${key}:`, error);
+  }
+}
+
 export const storageService = {
+  // --- API Keys ---
+  getApiKeys(): DataProviderConfig[] {
+    return getItemSession(STORAGE_KEYS.API_KEYS, []); 
+  },
+
+  saveApiKeys(keys: DataProviderConfig[]): void {
+    setItemSession(STORAGE_KEYS.API_KEYS, keys); 
+  },
+
   // --- Companies ---
   getCompanyTickers(): string[] {
     return getItem(STORAGE_KEYS.COMPANIES, []);
@@ -118,5 +139,60 @@ export const storageService = {
 
   saveKeyMetrics(metricIds: string[]): void {
     setItem(STORAGE_KEYS.KEY_METRICS, metricIds);
+  },
+
+  // --- Company Data Cache ---
+  getCachedCompanyData(ticker: string): { data: RawFinancialData; timestamp: number } | null {
+    const cache = getItem<Record<string, { data: RawFinancialData; timestamp: number }>>(
+      STORAGE_KEYS.COMPANY_CACHE,
+      {}
+    );
+    return cache[ticker.toUpperCase()] || null;
+  },
+
+  setCachedCompanyData(ticker: string, data: RawFinancialData): void {
+    const cache = getItem<Record<string, { data: RawFinancialData; timestamp: number }>>(
+      STORAGE_KEYS.COMPANY_CACHE,
+      {}
+    );
+    cache[ticker.toUpperCase()] = {
+      data,
+      timestamp: Date.now(),
+    };
+    setItem(STORAGE_KEYS.COMPANY_CACHE, cache);
+  },
+
+  clearCachedCompanyData(ticker: string): void {
+    const cache = getItem<Record<string, { data: RawFinancialData; timestamp: number }>>(
+      STORAGE_KEYS.COMPANY_CACHE,
+      {}
+    );
+    delete cache[ticker.toUpperCase()];
+    setItem(STORAGE_KEYS.COMPANY_CACHE, cache);
+  },
+
+  clearAllCachedData(): void {
+    setItem(STORAGE_KEYS.COMPANY_CACHE, {});
+  },
+
+  isCacheStale(ticker: string, maxAgeMs: number = 24 * 60 * 60 * 1000): boolean {
+    const cached = this.getCachedCompanyData(ticker);
+    if (!cached) return true;
+    return Date.now() - cached.timestamp > maxAgeMs;
+  },
+
+  // --- Last Refresh All ---
+  getLastRefreshAll(): number | null {
+    return getItem<number | null>(STORAGE_KEYS.LAST_REFRESH_ALL, null);
+  },
+
+  setLastRefreshAll(): void {
+    setItem(STORAGE_KEYS.LAST_REFRESH_ALL, Date.now());
+  },
+
+  shouldRefreshAll(maxAgeMs: number = 24 * 60 * 60 * 1000): boolean {
+    const lastRefresh = this.getLastRefreshAll();
+    if (!lastRefresh) return true;
+    return Date.now() - lastRefresh > maxAgeMs;
   },
 };

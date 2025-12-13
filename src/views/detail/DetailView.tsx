@@ -42,6 +42,10 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
   }, [dynamicMetrics]);
 
   const [expandedSubcategories, setExpandedSubcategories] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => 
+    new Set(groupedMetrics.map(g => g.category))
+  );
+  const [isCustomExpanded, setIsCustomExpanded] = useState(true);
   
   const toggleSubcategory = (category: string, subcategory: string) => {
     const key = `${category}_${subcategory}`;
@@ -55,6 +59,19 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
       return next;
     });
   };
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  };
+
 
 
   const metricRowSx = {
@@ -93,7 +110,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          p: 2,
+          p: { xs: 1.5, sm: 2 },
           backgroundColor: (theme: any) => 
             theme.palette.mode === 'dark' ? 'rgba(11, 17, 32, 0.8)' : 'rgba(248, 250, 252, 0.8)',
           backdropFilter: 'blur(10px)',
@@ -132,7 +149,7 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
       </Box>
 
       {/* --- Scrolling Content Area --- */}
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         {!data || Object.keys(data).length <= 2 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -171,11 +188,32 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
             return null;
           }
 
+          const isCategoryExpanded = expandedCategories.has(group.category);
+
           return (
             <Box key={group.category} sx={{ mb: 3 }}>
-              <Typography variant="h6" color="primary.light" mb={1} fontWeight="500">
-                {group.category}
-              </Typography>
+              <Box
+                onClick={() => toggleCategory(group.category)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                  p: 1,
+                  borderRadius: 1,
+                  mb: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <IconButton size="small" sx={{ p: 0.5 }}>
+                  {isCategoryExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </IconButton>
+                <Typography variant="h6" color="primary.light" fontWeight="500" sx={{ flexGrow: 1 }}>
+                  {group.category}
+                </Typography>
+              </Box>
+
+              <Collapse in={isCategoryExpanded} timeout="auto" unmountOnExit>
               
               {availableDirectMetrics.length > 0 && (
                 <Box display="flex" flexDirection="column" gap={0.5} sx={{ mb: availableSubcategories.length > 0 ? 2 : 0 }}>
@@ -243,31 +281,64 @@ export function DetailView({ item, data, customMetrics, onClose }: DetailViewPro
                   </Box>
                 );
               })}
+              </Collapse>
             </Box>
           );
         }))}
 
-        {customMetrics.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" color="primary.light" mb={1} fontWeight="500">
-              Custom Metrics
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={0.5}>
-              {customMetrics.map(metric => {
-                const value = data ? calculateCustomMetric(metric, data) : null;
-                const formatted = formatMetricValue(value, metric.format);
-                return (
-                  <Box key={metric.id} sx={metricRowSx}>
-                    <Typography variant="body2">{metric.name}</Typography>
-                    <Typography variant="body2" fontWeight="medium">
-                      {formatted ?? 'N/A'}
-                    </Typography>
-                  </Box>
-                );
-              })}
+        {customMetrics.length > 0 && (() => {
+          // Sort custom metrics by priority
+          const sortedCustomMetrics = [...customMetrics].sort((a, b) => {
+            const priorityA = a.priority || 5;
+            const priorityB = b.priority || 5;
+            return priorityB - priorityA; // Higher priority first
+          });
+
+          return (
+            <Box sx={{ mb: 3 }}>
+              <Box
+                onClick={() => setIsCustomExpanded(!isCustomExpanded)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                  p: 1,
+                  borderRadius: 1,
+                  mb: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <IconButton size="small" sx={{ p: 0.5 }}>
+                  {isCustomExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </IconButton>
+                <Typography variant="h6" color="primary.light" fontWeight="500" sx={{ flexGrow: 1 }}>
+                  Custom Metrics
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ({sortedCustomMetrics.length} metrics)
+                </Typography>
+              </Box>
+
+              <Collapse in={isCustomExpanded} timeout="auto" unmountOnExit>
+                <Box display="flex" flexDirection="column" gap={0.5}>
+                  {sortedCustomMetrics.map(metric => {
+                    const value = data ? calculateCustomMetric(metric, data) : null;
+                    const formatted = formatMetricValue(value, metric.format);
+                    return (
+                      <Box key={metric.id} sx={metricRowSx}>
+                        <Typography variant="body2">{metric.name}</Typography>
+                        <Typography variant="body2" fontWeight="medium">
+                          {formatted ?? 'N/A'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Collapse>
             </Box>
-          </Box>
-        )}
+          );
+        })()}
       </Box>
     </Paper>
   );

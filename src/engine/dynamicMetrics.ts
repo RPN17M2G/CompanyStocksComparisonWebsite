@@ -1,8 +1,5 @@
 import { RawFinancialData, DynamicMetric } from '../shared/types/types';
 
-/**
- * Infers the format type for a field based on its name and value
- */
 function inferFormat(fieldName: string, value: number | string): 'currency' | 'percentage' | 'ratio' | 'number' | 'text' {
   const name = fieldName.toLowerCase();
   
@@ -10,20 +7,17 @@ function inferFormat(fieldName: string, value: number | string): 'currency' | 'p
     return 'text';
   }
 
-  // Percentage indicators
   if (name.includes('percentage') || name.includes('percent') || name.includes('yield') || 
       name.includes('margin') || name.includes('ratio') && (name.includes('roe') || name.includes('roa'))) {
     return 'percentage';
   }
 
-  // Ratio indicators
   if (name.includes('ratio') || name.includes('pe') || name.includes('pb') || 
       name.includes('ps') || name.includes('peg') || name.includes('ev') || 
       name.includes('debt') || name.includes('current') || name.includes('quick')) {
     return 'ratio';
   }
 
-  // Currency indicators
   if (name.includes('cap') || name.includes('price') || name.includes('revenue') || 
       name.includes('income') || name.includes('cash') || name.includes('debt') ||
       name.includes('assets') || name.includes('equity') || name.includes('value') ||
@@ -33,13 +27,9 @@ function inferFormat(fieldName: string, value: number | string): 'currency' | 'p
     return 'currency';
   }
 
-  // Default to number for other numeric values
   return 'number';
 }
 
-/**
- * Infers the category for a field based on its name
- */
 function inferCategory(fieldName: string): string {
   const name = fieldName.toLowerCase();
   
@@ -82,24 +72,17 @@ function inferCategory(fieldName: string): string {
   return 'Other';
 }
 
-/**
- * Converts a field name to a human-readable name
- */
 function formatFieldName(fieldName: string): string {
-  // Handle camelCase and snake_case
   return fieldName
-    .replace(/([A-Z])/g, ' $1') // Add space before capital letters
-    .replace(/_/g, ' ') // Replace underscores with spaces
-    .replace(/\b\w/g, l => l.toUpperCase()) // Capitalize first letter of each word
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase())
     .trim();
 }
 
-/**
- * Generates dynamic metrics from all available fields in the data
- */
 export function generateDynamicMetrics(data: RawFinancialData): DynamicMetric[] {
   const metrics: DynamicMetric[] = [];
-  const seenFields = new Set<string>(['ticker', 'name']); // Skip required fields
+  const seenFields = new Set<string>(['ticker', 'name']);
 
   Object.keys(data).forEach(fieldName => {
     if (seenFields.has(fieldName)) return;
@@ -113,12 +96,10 @@ export function generateDynamicMetrics(data: RawFinancialData): DynamicMetric[] 
     const category = inferCategory(fieldName);
     const name = formatFieldName(fieldName);
     
-    // Determine aggregation method based on field type
     let aggregationMethod: 'sum' | 'weightedAverage' | undefined;
     const fieldLower = fieldName.toLowerCase();
     
     if (format === 'currency') {
-      // Sum for totals, weighted average for ratios/prices
       if (fieldLower.includes('cap') || fieldLower.includes('revenue') || 
           fieldLower.includes('income') || fieldLower.includes('assets') || 
           fieldLower.includes('debt') || fieldLower.includes('equity') ||
@@ -140,7 +121,6 @@ export function generateDynamicMetrics(data: RawFinancialData): DynamicMetric[] 
     });
   });
 
-  // Sort by category, then by name
   return metrics.sort((a, b) => {
     if (a.category !== b.category) {
       return a.category.localeCompare(b.category);
@@ -149,16 +129,16 @@ export function generateDynamicMetrics(data: RawFinancialData): DynamicMetric[] 
   });
 }
 
-/**
- * Gets all available metrics from multiple data sources
- */
 export function getAllAvailableMetrics(dataSources: RawFinancialData[]): DynamicMetric[] {
   const allFields = new Map<string, DynamicMetric>();
   
-  dataSources.forEach(data => {
+  dataSources.forEach((data, index) => {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+    
     const metrics = generateDynamicMetrics(data);
     metrics.forEach(metric => {
-      // Use the first occurrence to determine format/category
       if (!allFields.has(metric.id)) {
         allFields.set(metric.id, metric);
       }
